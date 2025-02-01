@@ -21,6 +21,8 @@ const OpeningUploader = () => {
   const [openings, setOpenings] = useState([]);
   const [error, setError] = useState('');
   const fileInputRef = useRef();
+  const containerRef = useRef(null);
+  const moveRefs = useRef({});
 
 
   useEffect(() => {
@@ -126,6 +128,35 @@ const OpeningUploader = () => {
     }
   }
 };
+
+ // Effect to handle auto-scrolling when currentPosition changes
+  useEffect(() => {
+    const moveButton = moveRefs.current[currentPosition];
+    if (moveButton && containerRef.current) {
+      const container = containerRef.current;
+      const buttonRect = moveButton.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+
+      if (buttonRect.bottom > containerRect.bottom || buttonRect.top < containerRect.top) {
+        moveButton.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+        });
+      }
+    }
+  }, [currentPosition]);
+
+  const getPieceImage = (move, index) => {
+    const pieceMap = {
+      'K': 'k', 'Q': 'q', 'R': 'r', 'B': 'b', 'N': 'n', 'P': 'p'
+    };
+
+    const piece = move.match(/^[KQRBN]/)?.[0] || 'P';
+    const color = index % 2 === 0 ? 'w' : 'b';
+    const pieceLetter = pieceMap[piece].toLowerCase();
+
+    return `/pieces/${color}${pieceLetter}.svg`;
+  };
 
 const parsePGNToPositions = (pgnText) => {
   try {
@@ -468,87 +499,136 @@ return (
 
     {/* Position Review Section */}
     {isPgnParsed && positions.length > 0 && (
-      <div className="mt-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div>
-            <ChessBoard
-              fen={positions[currentPosition].fen}
-              size="full"
-            />
-            <div className="flex justify-center gap-4 mt-4">
-              <button
-                onClick={() => setCurrentPosition(prev => Math.max(0, prev - 1))}
-                disabled={currentPosition === 0}
-                className="p-2 bg-white rounded-full shadow hover:bg-gray-100 disabled:opacity-50"
-              >
-                <ChevronLeft className="w-6 h-6" />
-              </button>
-              <button
-                onClick={() => setCurrentPosition(prev => Math.min(positions.length - 1, prev + 1))}
-                disabled={currentPosition === positions.length - 1}
-                className="p-2 bg-white rounded-full shadow hover:bg-gray-100 disabled:opacity-50"
-              >
-                <ChevronRight className="w-6 h-6" />
-              </button>
-            </div>
-          </div>
+  <div className="mt-6">
+    <div className="flex flex-col lg:flex-row gap-6">
+      {/* Left column - Moves list (25% on large screens) */}
+      <div className="w-full lg:w-1/4">
+        <h3 className="text-sm font-medium text-gray-700 mb-2">Moves:</h3>
 
-          <div className="space-y-4">
-
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="block font-medium text-gray-700">
-                  Notes for this position
-                </label>
-                {existingNotes[positions[currentPosition].fen] && (
-                  <span className="text-sm text-gray-500">
-                    {modifiedNotes[positions[currentPosition].fen]
-                      ? "Modified from existing note"
-                      : "Existing note"}
-                  </span>
-                )}
-              </div>
-              <textarea
-                value={notes[positions[currentPosition].fen] || ''}
-                onChange={(e) => handleUpdateNotes(e.target.value)}
-                className={`w-full h-48 p-3 border rounded-lg ${
-                  modifiedNotes[positions[currentPosition].fen]
-                    ? 'border-blue-500'
-                    : existingNotes[positions[currentPosition].fen]
-                    ? 'border-gray-300 bg-gray-50'
-                    : 'border-gray-300'
-                }`}
-                placeholder="Add notes for this position..."
-              />
-            </div>
-
-            {/* Position list with notes preview */}
-            <div className="mt-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">All Moves:</h3>
-              <div className="max-h-48 overflow-y-auto">
-                {positions.map((pos, index) => (
-                  <div
-                    key={index}
-                    onClick={() => setCurrentPosition(index)}
-                    className={`
-                      p-2 cursor-pointer
-                      ${currentPosition === index ? 'bg-blue-100' : 'hover:bg-gray-100'}
-                    `}
-                  >
-                    <div className="font-medium">{pos.move}</div>
-                    {notes[pos.fen] && (
-                      <div className="text-sm text-gray-600 truncate">
-                        {notes[pos.fen]}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+        {/* Starting position */}
+        <div className="mb-2">
+          <button
+            onClick={() => setCurrentPosition(0)}
+            className={`
+              px-2 py-1 rounded
+              text-sm font-medium
+              transition-all duration-150 ease-in-out
+              ${currentPosition === 0
+                ? 'bg-blue-100 text-blue-800 shadow-sm'
+                : 'hover:bg-gray-200 hover:shadow-sm'
+              }
+              ${modifiedNotes[positions[0].fen]
+                ? 'ring-1 ring-yellow-400'
+                : notes[positions[0].fen]
+                ? 'ring-1 ring-pink-400'
+                : 'hover:ring-1 hover:ring-gray-300'
+              }
+            `}
+          >
+            Starting Position
+          </button>
         </div>
 
-        <button
+
+        {/* Move list with consistent spacing */}
+        <div
+      ref={containerRef}
+      className="h-48 lg:h-auto lg:max-h-[20rem] overflow-y-auto"
+    >
+      <div className="grid grid-cols-2 gap-x-1 gap-y-2">
+        {positions.slice(1).map((pos, index) => (
+          <div key={index} className="flex items-center gap-1">
+            {index % 2 === 0 && (
+              <span className="text-sm text-gray-500 font-medium">
+                {`${Math.floor(index / 2) + 1}.`}
+              </span>
+            )}
+            <button
+              ref={el => moveRefs.current[index + 1] = el}
+              onClick={() => setCurrentPosition(index + 1)}
+              className={`
+                flex items-center gap-1 px-2 py-1 rounded
+                text-sm font-medium
+                transition-all duration-150 ease-in-out
+                ${currentPosition === index + 1
+                  ? 'bg-blue-100 text-blue-800 shadow-sm'
+                  : 'hover:bg-gray-200 hover:shadow-sm'
+                }
+                ${modifiedNotes[pos.fen]
+                  ? 'ring-1 ring-yellow-400'
+                  : notes[pos.fen]
+                  ? 'ring-1 ring-pink-400'
+                  : 'hover:ring-1 hover:ring-gray-300'
+                }
+              `}
+            >
+              <img
+                src={getPieceImage(pos.move, index)}
+                alt=""
+                className="w-4 h-4"
+              />
+              <span>{pos.move.replace(/[KQRBN]/, '')}</span>
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+      </div>
+
+      {/* Middle column - Chessboard and navigation (50% on large screens) */}
+      <div className="w-full lg:w-1/2">
+        <ChessBoard
+          fen={positions[currentPosition].fen}
+          size="full"
+        />
+
+        <div className="flex justify-center gap-4 mt-4">
+          <button
+            onClick={() => setCurrentPosition(prev => Math.max(0, prev - 1))}
+            disabled={currentPosition === 0}
+            className="p-2 bg-white rounded-full shadow hover:bg-gray-100 disabled:opacity-50"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          <button
+            onClick={() => setCurrentPosition(prev => Math.min(positions.length - 1, prev + 1))}
+            disabled={currentPosition === positions.length - 1}
+            className="p-2 bg-white rounded-full shadow hover:bg-gray-100 disabled:opacity-50"
+          >
+            <ChevronRight className="w-6 h-6" />
+          </button>
+        </div>
+      </div>
+
+      {/* Right column - Notes (25% on large screens) */}
+      <div className="w-full lg:w-1/4">
+        <div className="flex justify-between items-center mb-2">
+          <label className="block font-medium text-gray-700">
+            Notes for this position
+          </label>
+          {existingNotes[positions[currentPosition].fen] && (
+            <span className="text-sm text-gray-500">
+              {modifiedNotes[positions[currentPosition].fen]
+                ? "Modified from existing note"
+                : "Existing note"}
+            </span>
+          )}
+        </div>
+        <textarea
+          value={notes[positions[currentPosition].fen] || ''}
+          onChange={(e) => handleUpdateNotes(e.target.value)}
+          className={`w-full h-48 lg:h-[12rem] p-3 border rounded-lg ${
+            modifiedNotes[positions[currentPosition].fen]
+              ? 'border-yellow-500'
+              : existingNotes[positions[currentPosition].fen]
+              ? 'border-gray-300 bg-gray-50'
+              : 'border-gray-300'
+          }`}
+          placeholder="Add notes for this position..."
+        />
+      </div>
+    </div>
+    <button
           onClick={handleSave}
           className="w-full mt-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center justify-center gap-2"
         >
@@ -557,8 +637,8 @@ return (
           {mode === 'add' && 'Save Line'}
           {mode === 'modify' && 'Update Notes'}
         </button>
-      </div>
-    )}
+  </div>
+)}
   </div>
 );
 

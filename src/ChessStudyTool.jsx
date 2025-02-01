@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronRight, ChevronLeft, Trash2, Download, Upload } from 'lucide-react';
-import { getOpenings, deleteOpening, exportOpenings, importOpenings } from './utils/openingsManager';
+import { ChevronRight, ChevronLeft } from 'lucide-react';
+import { getOpenings } from './utils/openingsManager';
 import ChessBoard from './ChessBoard';
 
 const ChessStudyTool = () => {
@@ -33,42 +33,6 @@ const ChessStudyTool = () => {
       if (savedOpenings[0].lines.length > 0) {
         setSelectedLineId(savedOpenings[0].lines[0].id);
       }
-    }
-  };
-
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this opening?')) {
-      const remainingOpenings = deleteOpening(id);
-      setOpenings(remainingOpenings);
-      if (selectedOpeningId === id) {
-        setSelectedOpeningId(remainingOpenings[0]?.id || null);
-        setSelectedLineId(remainingOpenings[0]?.lines[0]?.id || null);
-        setCurrentPosition(0);
-      }
-    }
-  };
-
-  const handleExport = () => {
-    exportOpenings();
-  };
-
-  const handleImport = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setError('');
-      const importedOpenings = await importOpenings(file);
-      setOpenings(importedOpenings);
-      if (importedOpenings.length > 0) {
-        setSelectedOpeningId(importedOpenings[0].id);
-        setSelectedLineId(importedOpenings[0].lines[0]?.id || null);
-        setCurrentPosition(0);
-      }
-      e.target.value = '';
-    } catch (err) {
-      setError(err.message);
-      e.target.value = '';
     }
   };
 
@@ -116,41 +80,6 @@ const ChessStudyTool = () => {
                 </option>
               ))}
             </select>
-          </div>
-
-          <div className="flex gap-2">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleImport}
-              accept=".json"
-              className="hidden"
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center gap-2"
-            >
-              <Upload className="w-4 h-4" />
-              Import
-            </button>
-            {openings.length > 0 && (
-              <button
-                onClick={handleExport}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Export
-              </button>
-            )}
-            {selectedOpeningId && (
-              <button
-                onClick={() => handleDelete(selectedOpeningId)}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </button>
-            )}
           </div>
         </div>
 

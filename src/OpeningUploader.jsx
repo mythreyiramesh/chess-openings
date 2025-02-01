@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Save, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
-import { createNewOpening, addLineToOpening, getOpenings, updateOpeningNotes } from './utils/openingsManager';
+import React, { useState, useEffect, useRef } from 'react';
+import { Save, ChevronLeft, ChevronRight, Upload, Trash2, Download } from 'lucide-react';
+import { createNewOpening, addLineToOpening, getOpenings, updateOpeningNotes,
+         exportOpenings, importOpenings, deleteOpening, deleteLine } from './utils/openingsManager';
 import ChessBoard from './ChessBoard';
 import { Chess } from 'chess.js';
 
@@ -18,6 +19,9 @@ const OpeningUploader = () => {
   const [pgn, setPgn] = useState('');
   const [isPgnParsed, setIsPgnParsed] = useState(false);
   const [openings, setOpenings] = useState([]);
+  const [error, setError] = useState('');
+  const fileInputRef = useRef();
+
 
   useEffect(() => {
     // Load openings from localStorage on component mount
@@ -70,6 +74,58 @@ const OpeningUploader = () => {
       setModifiedNotes({});
     }
   }, [mode, selectedOpeningId, openings]);
+
+    const handleExport = () => {
+    exportOpenings();
+  };
+
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setError('');
+      const importedOpenings = await importOpenings(file);
+      setOpenings(importedOpenings);
+      if (importedOpenings.length > 0) {
+        setSelectedOpeningId(importedOpenings[0].id);
+        setSelectedLineId(importedOpenings[0].lines[0]?.id || null);
+        setCurrentPosition(0);
+      }
+      e.target.value = '';
+    } catch (err) {
+      setError(err.message);
+      e.target.value = '';
+    }
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm('Are you sure you want to delete this opening?')) {
+      const remainingOpenings = deleteOpening(id);
+      setOpenings(remainingOpenings);
+      if (selectedOpeningId === id) {
+        setSelectedOpeningId(remainingOpenings[0]?.id || null);
+        setSelectedLineId(remainingOpenings[0]?.lines[0]?.id || null);
+        setCurrentPosition(0);
+      }
+    }
+  };
+
+  const handleDeleteLine = (openingId, lineId) => {
+  if (window.confirm('Are you sure you want to delete this line?')) {
+    const updatedOpening = deleteLine(openingId, lineId);
+    if (updatedOpening) {
+      const newOpenings = openings.map(op =>
+        op.id === openingId ? updatedOpening : op
+      );
+      setOpenings(newOpenings);
+      if (selectedLineId === lineId) {
+        setSelectedLineId(updatedOpening.lines[0]?.id || null);
+        setCurrentPosition(0);
+      }
+    }
+  }
+};
 
 const parsePGNToPositions = (pgnText) => {
   try {
@@ -255,6 +311,32 @@ const parsePGNToPositions = (pgnText) => {
 
 return (
   <div className="max-w-4xl mx-auto p-4">
+
+    <div className="flex items-center justify-center space-x-4 mb-6">
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleImport}
+        accept=".json"
+        className="hidden"
+      />
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center gap-2"
+      >
+        <Upload className="w-4 h-4" />
+        Import
+      </button>
+      {openings.length > 0 && (
+        <button
+          onClick={handleExport}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2"
+        >
+          <Download className="w-4 h-4" />
+          Export
+        </button>
+      )}
+    </div>
     {/* Mode Selection */}
     <div className="flex gap-4 mb-6">
       <button
@@ -279,64 +361,84 @@ return (
           mode === 'modify' ? 'bg-blue-500 text-white' : 'bg-gray-200'
         }`}
       >
-        Modify Notes
+        Modify/Delete
       </button>
     </div>
 
     {/* Opening/Line Selection */}
-    <div className="space-y-4 mb-6">
-      {mode === 'new' ? (
-        <input
-          type="text"
-          value={openingName}
-          onChange={(e) => setOpeningName(e.target.value)}
-          placeholder="Opening Name"
+<div className="space-y-4 mb-6">
+  {mode === 'new' ? (
+    <input
+      type="text"
+      value={openingName}
+      onChange={(e) => setOpeningName(e.target.value)}
+      placeholder="Opening Name"
+      className="w-full p-3 border rounded-lg"
+    />
+  ) : (
+    <>
+      <div className="flex gap-2">
+        <select
+          value={selectedOpeningId}
+          onChange={(e) => setSelectedOpeningId(e.target.value)}
           className="w-full p-3 border rounded-lg"
-        />
-      ) : (
-        <>
+        >
+          <option value="">Select Opening</option>
+          {openings.map(opening => (
+            <option key={opening.id} value={opening.id}>
+              {opening.name}
+            </option>
+          ))}
+        </select>
+        {mode === 'modify' && selectedOpeningId && (
+          <button
+            onClick={() => handleDelete(selectedOpeningId)}
+            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center gap-2 whitespace-nowrap"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {mode === 'modify' && selectedOpeningId && (
+        <div className="flex gap-2">
           <select
-            value={selectedOpeningId}
-            onChange={(e) => setSelectedOpeningId(e.target.value)}
+            value={selectedLineId}
+            onChange={(e) => setSelectedLineId(e.target.value)}
             className="w-full p-3 border rounded-lg"
           >
-            <option value="">Select Opening</option>
-            {openings.map(opening => (
-              <option key={opening.id} value={opening.id}>
-                {opening.name}
-              </option>
-            ))}
+            <option value="">Select Line</option>
+            {openings
+              .find(op => op.id === selectedOpeningId)
+              ?.lines.map(line => (
+                <option key={line.id} value={line.id}>
+                  {line.name}
+                </option>
+              ))}
           </select>
-
-          {mode === 'modify' && selectedOpeningId && (
-            <select
-              value={selectedLineId}
-              onChange={(e) => setSelectedLineId(e.target.value)}
-              className="w-full p-3 border rounded-lg"
+          {selectedLineId && (
+            <button
+              onClick={() => handleDeleteLine(selectedOpeningId, selectedLineId)}
+              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center gap-2 whitespace-nowrap"
             >
-              <option value="">Select Line</option>
-              {openings
-                .find(op => op.id === selectedOpeningId)
-                ?.lines.map(line => (
-                  <option key={line.id} value={line.id}>
-                    {line.name}
-                  </option>
-                ))}
-            </select>
+              <Trash2 className="w-4 h-4" />
+            </button>
           )}
-        </>
+        </div>
       )}
+    </>
+  )}
 
-      {mode !== 'modify' && (
-        <input
-          type="text"
-          value={lineName}
-          onChange={(e) => setLineName(e.target.value)}
-          placeholder="Line Name"
-          className="w-full p-3 border rounded-lg"
-        />
-      )}
-    </div>
+  {mode !== 'modify' && (
+    <input
+      type="text"
+      value={lineName}
+      onChange={(e) => setLineName(e.target.value)}
+      placeholder="Line Name"
+      className="w-full p-3 border rounded-lg"
+    />
+  )}
+</div>
 
     {/* PGN Input - only show for new/add modes */}
     {mode !== 'modify' && !isPgnParsed && (

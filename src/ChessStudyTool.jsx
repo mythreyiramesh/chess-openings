@@ -153,9 +153,6 @@ const ChessStudyTool = () => {
                 >
                   <ChevronLeft className="w-6 h-6" />
                 </button>
-                <span className="py-2">
-                  Move {currentPosition + 1} of {selectedLine.positions.length}
-                </span>
                 <button
                   onClick={goToNextMove}
                   className="p-2 bg-white rounded-full shadow hover:bg-gray-100 disabled:opacity-50"

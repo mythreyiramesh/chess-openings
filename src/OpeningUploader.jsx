@@ -483,9 +483,6 @@ return (
               >
                 <ChevronLeft className="w-6 h-6" />
               </button>
-              <span className="py-2">
-                Move {currentPosition + 1} of {positions.length}
-              </span>
               <button
                 onClick={() => setCurrentPosition(prev => Math.min(positions.length - 1, prev + 1))}
                 disabled={currentPosition === positions.length - 1}
@@ -497,15 +494,10 @@ return (
           </div>
 
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Move: {positions[currentPosition].move}
-              </label>
-            </div>
 
             <div>
               <div className="flex justify-between items-center mb-2">
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block font-medium text-gray-700">
                   Notes for this position
                 </label>
                 {existingNotes[positions[currentPosition].fen] && (

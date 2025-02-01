@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Save } from 'lucide-react';
-import { Chess } from 'chess.js';
-import { saveOpening } from './utils/openingsManager.js';
+import { Save, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
+import { createNewOpening, addLineToOpening, getOpenings } from './utils/openingsManager';
 import ChessBoard from './ChessBoard';
+import { Chess } from 'chess.js';
 
 const MovesList = ({ positions, currentPosition }) => {
   return (
@@ -26,13 +26,21 @@ const MovesList = ({ positions, currentPosition }) => {
   );
 };
 
-const OpeningUploader = ({ onSaveComplete }) => {
-  const [currentStep, setCurrentStep] = useState('upload');
-  const [pgn, setPgn] = useState('');
+const OpeningUploader = () => {
+  const [isNewOpening, setIsNewOpening] = useState(true);
+  const [openingName, setOpeningName] = useState('');
+  const [lineName, setLineName] = useState('');
+  const [selectedOpeningId, setSelectedOpeningId] = useState('');
   const [positions, setPositions] = useState([]);
   const [currentPosition, setCurrentPosition] = useState(0);
-  const [openingName, setOpeningName] = useState('');
-  const [error, setError] = useState('');
+  const [pgn, setPgn] = useState('');
+  const [isPgnParsed, setIsPgnParsed] = useState(false);
+  const [openings, setOpenings] = useState([]);
+
+  useEffect(() => {
+    // Load openings from localStorage on component mount
+    setOpenings(getOpenings());
+  }, []);
 
 const parsePGNToPositions = (pgnText) => {
   try {
@@ -96,12 +104,14 @@ const parsePGNToPositions = (pgnText) => {
 
   const handlePGNSubmit = (e) => {
     e.preventDefault();
-    setError('');
-
-    const parsedPositions = parsePGNToPositions(pgn);
-    if (parsedPositions) {
-      setPositions(parsedPositions);
-      setCurrentStep('notes');
+    try {
+      const parsedPositions = parsePGNToPositions(pgn);
+      if (parsedPositions && parsedPositions.length > 0) {
+        setPositions(parsedPositions);
+        setIsPgnParsed(true);
+      }
+    } catch (error) {
+      alert('Error parsing PGN: ' + error.message);
     }
   };
 
@@ -110,50 +120,122 @@ const parsePGNToPositions = (pgnText) => {
       const newPositions = [...prevPositions];
       newPositions[currentPosition] = {
         ...newPositions[currentPosition],
-        notes
+        notes: notes
       };
       return newPositions;
     });
   };
 
   const handleSave = () => {
-    const openingData = {
-      id: Date.now().toString(),
-      name: openingName,
-      positions: positions,
-      dateAdded: new Date().toISOString()
+    const lineData = {
+      name: lineName || 'Main Line',
+      positions: positions
     };
 
     try {
-      saveOpening(openingData);
-      alert('Opening saved successfully!');
-      // Reset form or redirect
-      setCurrentStep('upload');
-      setPgn('');
-      setOpeningName('');
-      setPositions([]);
-      if (onSaveComplete) onSaveComplete();
+      if (isNewOpening) {
+        if (!openingName) {
+          alert('Please enter an opening name');
+          return;
+        }
+        const newOpening = createNewOpening(openingName, lineData);
+        setOpenings(getOpenings());
+        alert('Opening created successfully!');
+      } else {
+        if (!selectedOpeningId) {
+          alert('Please select an opening');
+          return;
+        }
+        const updatedOpening = addLineToOpening(selectedOpeningId, lineData);
+        if (updatedOpening) {
+          setOpenings(getOpenings());
+          alert('Line added successfully!');
+        }
+      }
+      resetAll();
     } catch (error) {
-      alert('Error saving opening: ' + error.message);
+      alert('Error saving: ' + error.message);
     }
   };
 
+  const resetAll = () => {
+    setIsPgnParsed(false);
+    setPgn('');
+    setPositions([]);
+    setCurrentPosition(0);
+    setOpeningName('');
+    setLineName('');
+    setSelectedOpeningId('');
+  };
+
+
   return (
     <div className="max-w-4xl mx-auto p-6">
-      {currentStep === 'upload' ? (
+      {/* Opening/Line Selection */}
+      <div className="mb-6">
+        <div className="flex gap-4 mb-4">
+          <button
+            onClick={() => {
+              setIsNewOpening(true);
+              resetAll();
+            }}
+            className={`flex-1 py-2 rounded-lg ${
+              isNewOpening ? 'bg-blue-500 text-white' : 'bg-gray-200'
+            }`}
+          >
+            New Opening
+          </button>
+          <button
+            onClick={() => {
+              setIsNewOpening(false);
+              resetAll();
+            }}
+            className={`flex-1 py-2 rounded-lg ${
+              !isNewOpening ? 'bg-blue-500 text-white' : 'bg-gray-200'
+            }`}
+          >
+            Add Line to Existing
+          </button>
+        </div>
+
+        {isNewOpening ? (
+          <input
+            type="text"
+            value={openingName}
+            onChange={(e) => setOpeningName(e.target.value)}
+            placeholder="Opening Name"
+            className="w-full p-3 border rounded-lg mb-4"
+            required
+          />
+        ) : (
+          <select
+            value={selectedOpeningId}
+            onChange={(e) => setSelectedOpeningId(e.target.value)}
+            className="w-full p-3 border rounded-lg mb-4"
+            required
+          >
+            <option value="">Select Opening</option>
+            {openings.map(opening => (
+              <option key={opening.id} value={opening.id}>
+                {opening.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <input
+          type="text"
+          value={lineName}
+          onChange={(e) => setLineName(e.target.value)}
+          placeholder={isNewOpening ? "Main Line Name" : "New Line Name"}
+          className="w-full p-3 border rounded-lg"
+          required
+        />
+      </div>
+
+      {/* PGN Input Section - only shown before parsing */}
+      {!isPgnParsed && (
         <form onSubmit={handlePGNSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Opening Name
-            </label>
-            <input
-              type="text"
-              value={openingName}
-              onChange={(e) => setOpeningName(e.target.value)}
-              className="w-full p-3 border rounded-lg"
-              required
-            />
-          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Paste PGN
@@ -161,101 +243,111 @@ const parsePGNToPositions = (pgnText) => {
             <textarea
               value={pgn}
               onChange={(e) => setPgn(e.target.value)}
-              className="w-full h-64 p-3 border rounded-lg font-mono"
+              className="w-full h-32 p-3 border rounded-lg font-mono"
               placeholder="Paste your PGN here..."
               required
             />
-            {error && (
-              <p className="mt-2 text-red-500 text-sm">{error}</p>
-            )}
           </div>
+
           <button
             type="submit"
-            className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center gap-2"
           >
-            Parse PGN and Add Notes
+            <Upload className="w-5 h-5" />
+            Parse PGN
           </button>
         </form>
-      ) : (
-        <div className="space-y-6">
-          <h2 className="text-2xl font-bold">{openingName}</h2>
+      )}
 
-                         {/* Add MovesList component here */}
-              <MovesList
-                positions={positions}
-                currentPosition={currentPosition}
-              />
-
-          {/* Position Display and Chessboard */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-
+      {/* Position Review Section - only shown after parsing */}
+      {isPgnParsed && positions.length > 0 && (
+        <div className="mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
               <ChessBoard
-      fen={positions[currentPosition].fen}
-      size="fixed" // or "full" depending on your preference
-    />
-
-              <div className="text-center">
-                {currentPosition > 0 && (
-                  <div className="text-lg font-semibold">
-                    Move {Math.ceil(currentPosition / 2)}: {positions[currentPosition].move}
-                  </div>
-                )}
+                fen={positions[currentPosition].fen}
+                size="full"
+              />
+              {/* Navigation controls */}
+              <div className="flex justify-center gap-4 mt-4">
+                <button
+                  onClick={() => setCurrentPosition(prev => Math.max(0, prev - 1))}
+                  disabled={currentPosition === 0}
+                  className="p-2 bg-white rounded-full shadow hover:bg-gray-100 disabled:opacity-50"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                <span className="py-2">
+                  Move {currentPosition + 1} of {positions.length}
+                </span>
+                <button
+                  onClick={() => setCurrentPosition(prev => Math.min(positions.length - 1, prev + 1))}
+                  disabled={currentPosition === positions.length - 1}
+                  className="p-2 bg-white rounded-full shadow hover:bg-gray-100 disabled:opacity-50"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
               </div>
-
             </div>
 
             <div className="space-y-4">
-              {/* Notes for current position */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {currentPosition === 0 ? 'Opening Notes' :
-                   currentPosition === positions.length - 1 ? 'Final Position Notes' :
-                   `Notes for Move ${Math.ceil(currentPosition / 2)}`}
+                  Move: {positions[currentPosition].move}
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notes for this position
                 </label>
                 <textarea
-                  value={positions[currentPosition].notes}
+                  value={positions[currentPosition].notes || ''}
                   onChange={(e) => handleUpdateNotes(e.target.value)}
                   className="w-full h-48 p-3 border rounded-lg"
                   placeholder="Add notes for this position..."
                 />
               </div>
+
+              {/* Position list with notes preview */}
+              <div className="mt-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">All Moves:</h3>
+                <div className="max-h-48 overflow-y-auto">
+                  {positions.map((pos, index) => (
+                    <div
+                      key={index}
+                      onClick={() => setCurrentPosition(index)}
+                      className={`
+                        p-2 cursor-pointer
+                        ${currentPosition === index ? 'bg-blue-100' : 'hover:bg-gray-100'}
+                      `}
+                    >
+                      <div className="font-medium">{pos.move}</div>
+                      {pos.notes && (
+                        <div className="text-sm text-gray-600 truncate">
+                          {pos.notes}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Navigation */}
-          <div className="flex justify-center items-center gap-4">
-            <button
-              onClick={() => setCurrentPosition(Math.max(0, currentPosition - 1))}
-              disabled={currentPosition === 0}
-              className="p-2 bg-white rounded-full shadow hover:bg-gray-100 disabled:opacity-50"
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-            <span className="py-2 min-w-[100px] text-center">
-              Position {currentPosition} of {positions.length - 1}
-            </span>
-            <button
-              onClick={() => setCurrentPosition(Math.min(positions.length - 1, currentPosition + 1))}
-              disabled={currentPosition === positions.length - 1}
-              className="p-2 bg-white rounded-full shadow hover:bg-gray-100 disabled:opacity-50"
-            >
-              <ChevronRight className="w-6 h-6" />
-            </button>
-          </div>
-
-          {/* Save Button */}
           <button
             onClick={handleSave}
-            className="w-full py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center justify-center gap-2"
+            className="w-full mt-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center justify-center gap-2"
           >
             <Save className="w-5 h-5" />
-            Save Opening
+            Save {isNewOpening ? 'Opening' : 'Line'}
           </button>
         </div>
       )}
     </div>
   );
+
+
 };
 
 export default OpeningUploader;

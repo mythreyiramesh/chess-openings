@@ -1,35 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronDown } from 'lucide-react';
 import { getOpenings } from './utils/openingsManager';
 
 const OpeningTree = () => {
   const [openings, setOpenings] = useState([]);
   const [selectedOpening, setSelectedOpening] = useState(null);
-  const [expandedNodes, setExpandedNodes] = useState(new Set());
-
-  // Convert linear lines into a tree structure
-  const buildMoveTree = (lines) => {
-    const root = { children: {}, move: 'start' };
-
-    lines.forEach(line => {
-      let currentNode = root;
-      line.positions.forEach(position => {
-        if (!currentNode.children[position.move]) {
-          currentNode.children[position.move] = {
-            move: position.move,
-            fen: position.fen,
-            notes: position.notes,
-            children: {},
-            lineName: line.name
-          };
-        }
-        currentNode = currentNode.children[position.move];
-      });
-    });
-
-    return root;
-  };
 
   useEffect(() => {
     const loadedOpenings = getOpenings();
@@ -39,80 +13,176 @@ const OpeningTree = () => {
     }
   }, []);
 
-  const toggleNode = (move) => {
-    setExpandedNodes(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(move)) {
-        newSet.delete(move);
-      } else {
-        newSet.add(move);
-      }
-      return newSet;
+  const buildMoveTree = (lines) => {
+    const root = { children: {}, move: 'start', depth: 0 };
+
+    lines.forEach(line => {
+      let currentNode = root;
+      line.positions.forEach((position, index) => {
+        if (!currentNode.children[position.move]) {
+          currentNode.children[position.move] = {
+            move: position.move,
+            fen: position.fen,
+            notes: position.notes,
+            children: {},
+            depth: index + 1,
+            lines: [line.name],
+            isFirstUniqueMove: false
+          };
+        } else {
+          if (!currentNode.children[position.move].lines.includes(line.name)) {
+            currentNode.children[position.move].lines.push(line.name);
+          }
+        }
+        currentNode = currentNode.children[position.move];
+      });
     });
+
+
+
+    // Helper function to check if a subtree has further branches
+    const hasMultipleBranches = (node) => {
+      const children = Object.values(node.children);
+      if (children.length > 1) return true;
+      return children.some(child => hasMultipleBranches(child));
+    };
+
+    // Mark first unique moves, but only if they don't branch again
+    const markFirstUniqueMoves = (node) => {
+      const children = Object.values(node.children);
+      if (children.length > 1) {
+        // This is a branching point
+        children.forEach(child => {
+          if (child.lines.length < selectedOpening.lines.length) {
+            // Only mark as first unique if this subtree doesn't branch again
+            if (!hasMultipleBranches(child)) {
+              child.isFirstUniqueMove = true;
+            }
+          }
+        });
+      }
+      children.forEach(markFirstUniqueMoves);
+    };
+
+    markFirstUniqueMoves(root);
+    return root;
   };
 
-  const renderMoveTree = (node, depth = 0, path = '') => {
-    if (!node) return null;
+  // Calculate dimensions for layout planning
+  const calculateDimensions = (node, depth = 0) => {
+    if (!node || Object.keys(node.children).length === 0) {
+      return {
+        width: 120,
+        height: depth * 80 + 40,
+        leafCount: 1
+      };
+    }
 
-    const currentPath = `${path}${node.move}`;
-    const hasChildren = Object.keys(node.children).length > 0;
-    const isExpanded = expandedNodes.has(currentPath);
+    const children = Object.values(node.children);
+    const childDimensions = children.map(child =>
+      calculateDimensions(child, depth + 1)
+    );
+
+    const totalLeaves = childDimensions.reduce((sum, dim) => sum + dim.leafCount, 0);
+
+    const width = Math.max(
+      totalLeaves * 120 * 1.5,
+      children.length * 180
+    );
+
+    const height = Math.max(...childDimensions.map(d => d.height));
+
+    return {
+      width,
+      height,
+      leafCount: totalLeaves
+    };
+  };
+
+  // Recursive component for rendering nodes
+  const TreeNode = ({ node, x, y, availableWidth }) => {
+    const children = Object.values(node.children);
+    const nodeWidth = 120;
+    const nodeHeight = 40;
+    const levelHeight = 80;
+
+    if (node.move === 'start') {
+      return (
+        <g>
+          {children.map((child, index) => {
+            const childDims = calculateDimensions(child);
+            return (
+              <TreeNode
+                key={child.move}
+                node={child}
+                x={x}
+                y={levelHeight}
+                availableWidth={childDims.width}
+              />
+            );
+          })}
+        </g>
+      );
+    }
+
+    const childDimensions = children.map(child => calculateDimensions(child));
+    const totalChildWidth = childDimensions.reduce((sum, dim) => sum + dim.width, 0);
+    let currentX = x - totalChildWidth / 2;
 
     return (
-      <div key={currentPath} className={`${depth > 0 ? 'ml-6' : ''}`}>
-        {node.move !== 'start' && (
-          <div className="flex items-center group">
-            <div className="w-6 flex-shrink-0">
-              {hasChildren && (
-                <button
-                  onClick={() => toggleNode(currentPath)}
-                  className="p-1 hover:bg-gray-100 rounded"
-                >
-                  {isExpanded ? (
-                    <ChevronDown className="w-4 h-4" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4" />
-                  )}
-                </button>
-              )}
-            </div>
-            <div className="flex-1 py-2">
-              <div className="flex items-center">
-                <span className="font-mono font-medium">
-                  {Math.floor((depth + 1) / 2)}.
-                  {depth % 2 === 0 ? '' : '..'} {node.move}
-                </span>
-                {node.lineName && (
-                  <span className="ml-2 text-sm text-gray-500">
-                    ({node.lineName})
-                  </span>
-                )}
-              </div>
-              {node.notes && (
-                <div className="text-sm text-gray-600 ml-8">
-                  {node.notes}
-                </div>
-              )}
-            </div>
-          </div>
+      <g>
+        <rect
+          x={x - nodeWidth/2}
+          y={y}
+          width={nodeWidth}
+          height={nodeHeight}
+          rx="4"
+          className="fill-white stroke-gray-300"
+        />
+
+        <text
+          x={x}
+          y={y + nodeHeight/2}
+          className="text-sm font-medium"
+          textAnchor="middle"
+          dominantBaseline="middle"
+        >
+          {`${Math.ceil(node.depth / 2)}${node.depth % 2 === 0 ? '...' : '.'} ${node.move}`}
+        </text>
+
+        {node.isFirstUniqueMove && (
+          <text
+            x={x}
+            y={y - 8}
+            className="text-xs text-gray-500"
+            textAnchor="middle"
+          >
+            {node.lines.join(', ')}
+          </text>
         )}
 
-        {hasChildren && (isExpanded || node.move === 'start') && (
-          <AnimatePresence>
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2 }}
-              className="border-l-2 border-gray-200"
-            >
-              {Object.values(node.children).map(childNode =>
-                renderMoveTree(childNode, depth + 1, currentPath)
-              )}
-            </motion.div>
-          </AnimatePresence>
-        )}
-      </div>
+        {children.map((child, index) => {
+          const childWidth = childDimensions[index].width;
+          const childX = currentX + childWidth / 2;
+          currentX += childWidth;
+
+          return (
+            <g key={`${child.move}-${index}`}>
+              <path
+                d={`M ${x} ${y + nodeHeight} L ${childX} ${y + levelHeight}`}
+                className="stroke-gray-300"
+                fill="none"
+              />
+              <TreeNode
+                node={child}
+                x={childX}
+                y={y + levelHeight}
+                availableWidth={childWidth}
+              />
+            </g>
+          );
+        })}
+      </g>
     );
   };
 
@@ -120,17 +190,16 @@ const OpeningTree = () => {
     return <div className="p-4">No openings found</div>;
   }
 
-  const moveTree = buildMoveTree(selectedOpening.lines);
+  const moveTree = buildMoveTree(selectedOpening.lines); // buildMoveTree implementation remains the same
+  const dimensions = calculateDimensions(moveTree);
 
+  // Main render
   return (
     <div className="p-4">
       <select
         className="mb-4 w-full max-w-xs p-2 border rounded-md shadow-sm"
         value={selectedOpening.id}
-        onChange={(e) => {
-          setSelectedOpening(openings.find(o => o.id === e.target.value));
-          setExpandedNodes(new Set());
-        }}
+        onChange={(e) => setSelectedOpening(openings.find(o => o.id === e.target.value))}
       >
         {openings.map(opening => (
           <option key={opening.id} value={opening.id}>
@@ -139,8 +208,20 @@ const OpeningTree = () => {
         ))}
       </select>
 
-      <div className="bg-white rounded-lg shadow p-4">
-        {renderMoveTree(moveTree)}
+      <div className="bg-white rounded-lg shadow p-4 overflow-auto">
+        <svg
+          width={dimensions.width}
+          height={dimensions.height}
+          className="mx-auto"
+          viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
+        >
+          <TreeNode
+            node={moveTree}
+            x={dimensions.width / 2}
+            y={20}
+            availableWidth={dimensions.width}
+          />
+        </svg>
       </div>
     </div>
   );

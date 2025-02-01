@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { Dialog } from '@headlessui/react';
+import { X } from 'lucide-react';
 import { getOpenings } from './utils/openingsManager';
+import ChessBoard from './ChessBoard';
 
 const OpeningTree = () => {
   const [openings, setOpenings] = useState([]);
   const [selectedOpening, setSelectedOpening] = useState(null);
+  const [selectedNode, setSelectedNode] = useState(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   useEffect(() => {
     const loadedOpenings = getOpenings();
@@ -23,7 +28,6 @@ const OpeningTree = () => {
           currentNode.children[position.move] = {
             move: position.move,
             fen: position.fen,
-            // Get notes from the opening's notes object using the FEN as key
             notes: selectedOpening.notes?.[position.fen]?.content || '',
             children: {},
             depth: index + 1,
@@ -63,7 +67,6 @@ const OpeningTree = () => {
     return root;
   };
 
-  // Calculate dimensions for layout planning
   const calculateDimensions = (node, depth = 0) => {
     if (!node || Object.keys(node.children).length === 0) {
       return {
@@ -92,12 +95,18 @@ const OpeningTree = () => {
     };
   };
 
-  // Render node component
   const TreeNode = ({ node, x, y, availableWidth }) => {
     const children = Object.values(node.children);
     const nodeWidth = 120;
     const nodeHeight = 40;
     const levelHeight = 80;
+
+    const handleNodeClick = (node) => {
+      if (node.move !== 'start') {
+        setSelectedNode(node);
+        setIsDialogOpen(true);
+      }
+    };
 
     if (node.move === 'start') {
       return (
@@ -124,50 +133,42 @@ const OpeningTree = () => {
 
     return (
       <g>
-        {/* Node rectangle */}
-        <rect
-          x={x - nodeWidth/2}
-          y={y}
-          width={nodeWidth}
-          height={nodeHeight}
-          rx="4"
-          className={`stroke-gray-300 ${node.notes ? 'fill-blue-50' : 'fill-white'}`}
-        />
-
-        {/* Move text */}
-        <text
-          x={x}
-          y={y + nodeHeight/2}
-          className="text-sm font-medium"
-          textAnchor="middle"
-          dominantBaseline="middle"
+        <g
+          onClick={() => handleNodeClick(node)}
+          className="cursor-pointer"
         >
-          {`${Math.ceil(node.depth / 2)}${node.depth % 2 === 0 ? '...' : '.'} ${node.move}`}
-        </text>
+          <rect
+            x={x - nodeWidth/2}
+            y={y}
+            width={nodeWidth}
+            height={nodeHeight}
+            rx="4"
+            className={`stroke-gray-300 ${node.notes ? 'fill-blue-50' : 'fill-white'} hover:fill-gray-100`}
+          />
 
-        {/* Line names for unique moves */}
-        {node.isFirstUniqueMove && (
           <text
             x={x}
-            y={y - 8}
-            className="text-xs text-gray-500"
+            y={y + nodeHeight/2}
+            className="text-sm font-medium pointer-events-none"
             textAnchor="middle"
+            dominantBaseline="middle"
           >
-            {node.lines.join(', ')}
+            {`${Math.ceil(node.depth / 2)}${node.depth % 2 === 0 ? '...' : '.'} ${node.move}`}
           </text>
-        )}
 
-        {/* Notes indicator */}
-        {node.notes && (
-          <circle
-            cx={x + nodeWidth/2 - 8}
-            cy={y + 8}
-            r={4}
-            className="fill-blue-500"
-          />
-        )}
+          {node.isFirstUniqueMove && (
+            <text
+              x={x}
+              y={y - 8}
+              className="text-xs text-gray-500 pointer-events-none"
+              textAnchor="middle"
+            >
+              {node.lines.join(', ')}
+            </text>
+          )}
 
-        {/* Connect children */}
+        </g>
+
         {children.map((child, index) => {
           const childWidth = childDimensions[index].width;
           const childX = currentX + childWidth / 2;
@@ -229,6 +230,47 @@ const OpeningTree = () => {
           />
         </svg>
       </div>
+
+      <Dialog
+        open={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        className="relative z-50"
+      >
+        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <Dialog.Panel className="mx-auto max-w-3xl w-full bg-white rounded-xl shadow-lg">
+            <div className="relative p-6">
+              <button
+                onClick={() => setIsDialogOpen(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-500"
+              >
+                <X className="h-6 w-6" />
+              </button>
+
+              <Dialog.Title className="text-lg font-medium mb-4">
+                Position after {selectedNode?.move}
+              </Dialog.Title>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="w-full aspect-square">
+                  <ChessBoard
+                    fen={selectedNode?.fen}
+                    size="full"
+                  />
+                </div>
+
+                <div>
+                  <h3 className="font-medium mb-2">Notes:</h3>
+                  <p className="text-gray-600">
+                    {selectedNode?.notes || "No notes for this position."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Dialog.Panel>
+        </div>
+      </Dialog>
     </div>
   );
 };

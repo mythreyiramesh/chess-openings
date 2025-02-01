@@ -66,6 +66,18 @@ export const updateNote = (openingId, fen, noteContent) => {
   return null;
 };
 
+export const updateOpeningNotes = (openingId, notes) => {
+  const openings = getOpenings();
+  const openingIndex = openings.findIndex(op => op.id === openingId);
+
+  if (openingIndex !== -1) {
+    openings[openingIndex].notes = notes;
+    localStorage.setItem('chessopenings', JSON.stringify(openings));
+    return openings[openingIndex];
+  }
+  return null;
+};
+
 export const addLineToOpening = (openingId, { line, notes }) => {
   const openings = JSON.parse(localStorage.getItem('chessopenings') || '[]');
   const openingIndex = openings.findIndex(op => op.id === openingId);

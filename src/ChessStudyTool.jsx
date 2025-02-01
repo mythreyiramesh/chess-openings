@@ -74,6 +74,15 @@ const ChessStudyTool = () => {
 
   const selectedOpening = openings.find(op => op.id === selectedOpeningId);
   const selectedLine = selectedOpening?.lines.find(line => line.id === selectedLineId);
+
+  const getCurrentNote = () => {
+    if (!selectedOpening || !selectedLine || currentPosition >= selectedLine.positions.length) {
+      return '';
+    }
+    const currentFen = selectedLine.positions[currentPosition].fen;
+    return selectedOpening.notes?.[currentFen]?.content || '';
+  };
+
   const goToNextMove = () => {
     if (selectedLine && currentPosition < selectedLine.positions.length - 1) {
       setCurrentPosition(currentPosition + 1);
@@ -187,9 +196,9 @@ const ChessStudyTool = () => {
           </h1>
 
           <div className="mb-6">
-                <p className="text-gray-700 whitespace-pre-wrap">
-                  {selectedLine.positions[currentPosition].notes || ''}
-                </p>
+            <p className="text-gray-700 whitespace-pre-wrap">
+              {getCurrentNote()}
+            </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -243,9 +252,9 @@ const ChessStudyTool = () => {
                       `}
                     >
                       <div className="font-medium">{position.move}</div>
-                      {position.notes && (
+                      {selectedOpening.notes?.[position.fen] && (
                         <div className="text-sm text-gray-600 truncate">
-                          {position.notes}
+                          {selectedOpening.notes[position.fen].content}
                         </div>
                       )}
                     </div>

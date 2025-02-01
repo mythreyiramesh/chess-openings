@@ -23,7 +23,8 @@ const OpeningTree = () => {
           currentNode.children[position.move] = {
             move: position.move,
             fen: position.fen,
-            notes: position.notes,
+            // Get notes from the opening's notes object using the FEN as key
+            notes: selectedOpening.notes?.[position.fen]?.content || '',
             children: {},
             depth: index + 1,
             lines: [line.name],
@@ -38,23 +39,17 @@ const OpeningTree = () => {
       });
     });
 
-
-
-    // Helper function to check if a subtree has further branches
     const hasMultipleBranches = (node) => {
       const children = Object.values(node.children);
       if (children.length > 1) return true;
       return children.some(child => hasMultipleBranches(child));
     };
 
-    // Mark first unique moves, but only if they don't branch again
     const markFirstUniqueMoves = (node) => {
       const children = Object.values(node.children);
       if (children.length > 1) {
-        // This is a branching point
         children.forEach(child => {
           if (child.lines.length < selectedOpening.lines.length) {
-            // Only mark as first unique if this subtree doesn't branch again
             if (!hasMultipleBranches(child)) {
               child.isFirstUniqueMove = true;
             }
@@ -84,12 +79,10 @@ const OpeningTree = () => {
     );
 
     const totalLeaves = childDimensions.reduce((sum, dim) => sum + dim.leafCount, 0);
-
     const width = Math.max(
       totalLeaves * 120 * 1.5,
       children.length * 180
     );
-
     const height = Math.max(...childDimensions.map(d => d.height));
 
     return {
@@ -99,7 +92,7 @@ const OpeningTree = () => {
     };
   };
 
-  // Recursive component for rendering nodes
+  // Render node component
   const TreeNode = ({ node, x, y, availableWidth }) => {
     const children = Object.values(node.children);
     const nodeWidth = 120;
@@ -131,15 +124,17 @@ const OpeningTree = () => {
 
     return (
       <g>
+        {/* Node rectangle */}
         <rect
           x={x - nodeWidth/2}
           y={y}
           width={nodeWidth}
           height={nodeHeight}
           rx="4"
-          className="fill-white stroke-gray-300"
+          className={`stroke-gray-300 ${node.notes ? 'fill-blue-50' : 'fill-white'}`}
         />
 
+        {/* Move text */}
         <text
           x={x}
           y={y + nodeHeight/2}
@@ -150,6 +145,7 @@ const OpeningTree = () => {
           {`${Math.ceil(node.depth / 2)}${node.depth % 2 === 0 ? '...' : '.'} ${node.move}`}
         </text>
 
+        {/* Line names for unique moves */}
         {node.isFirstUniqueMove && (
           <text
             x={x}
@@ -161,6 +157,17 @@ const OpeningTree = () => {
           </text>
         )}
 
+        {/* Notes indicator */}
+        {node.notes && (
+          <circle
+            cx={x + nodeWidth/2 - 8}
+            cy={y + 8}
+            r={4}
+            className="fill-blue-500"
+          />
+        )}
+
+        {/* Connect children */}
         {children.map((child, index) => {
           const childWidth = childDimensions[index].width;
           const childX = currentX + childWidth / 2;
@@ -190,10 +197,9 @@ const OpeningTree = () => {
     return <div className="p-4">No openings found</div>;
   }
 
-  const moveTree = buildMoveTree(selectedOpening.lines); // buildMoveTree implementation remains the same
+  const moveTree = buildMoveTree(selectedOpening.lines);
   const dimensions = calculateDimensions(moveTree);
 
-  // Main render
   return (
     <div className="p-4">
       <select

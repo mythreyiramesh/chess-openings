@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { getOpenings } from './utils/openingsManager';
 import ChessBoard from './ChessBoard';
@@ -9,7 +9,8 @@ const ChessStudyTool = () => {
   const [selectedLineId, setSelectedLineId] = useState(null);
   const [currentPosition, setCurrentPosition] = useState(0);
   const [error, setError] = useState('');
-  const fileInputRef = useRef();
+  const containerRef = useRef(null);
+  const moveRefs = useRef({});
 
   useEffect(() => {
     loadOpenings();
@@ -24,6 +25,24 @@ const ChessStudyTool = () => {
       }
     }
   }, [selectedOpeningId]);
+
+  // Autoscroll effect
+  useEffect(() => {
+    if (currentPosition > 0 && moveRefs.current[currentPosition] && containerRef.current) {
+      const container = containerRef.current;
+      const element = moveRefs.current[currentPosition];
+
+      const elementRect = element.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+
+      if (elementRect.bottom > containerRect.bottom || elementRect.top < containerRect.top) {
+        element.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest'
+        });
+      }
+    }
+  }, [currentPosition]);
 
   const loadOpenings = () => {
     const savedOpenings = getOpenings();
@@ -47,16 +66,16 @@ const ChessStudyTool = () => {
     return selectedOpening.notes?.[currentFen]?.content || '';
   };
 
-  const goToNextMove = () => {
-    if (selectedLine && currentPosition < selectedLine.positions.length - 1) {
-      setCurrentPosition(currentPosition + 1);
-    }
-  };
+  const getPieceImage = (move, index) => {
+    const pieceMap = {
+      'K': 'k', 'Q': 'q', 'R': 'r', 'B': 'b', 'N': 'n', 'P': 'p'
+    };
 
-  const goToPreviousMove = () => {
-    if (currentPosition > 0) {
-      setCurrentPosition(currentPosition - 1);
-    }
+    const piece = move.match(/^[KQRBN]/)?.[0] || 'P';
+    const color = index % 2 === 0 ? 'w' : 'b';
+    const pieceLetter = pieceMap[piece].toLowerCase();
+
+    return `/pieces/${color}${pieceLetter}.svg`;
   };
 
   return (
@@ -85,23 +104,27 @@ const ChessStudyTool = () => {
 
         {selectedOpening && (
           <div className="flex-1 min-w-[200px]">
-            <select
-              value={selectedLineId || ''}
-              onChange={(e) => {
-                setSelectedLineId(e.target.value);
-                setCurrentPosition(0);
-              }}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="" disabled>Select a line</option>
+            <div className="flex flex-wrap gap-2">
               {selectedOpening.lines.map(line => (
-                <option key={line.id} value={line.id}>
+                <button
+                  key={line.id}
+                  onClick={() => {
+                    setSelectedLineId(line.id);
+                    setCurrentPosition(0);
+                  }}
+                  className={`px-4 py-2 rounded-lg border transition-colors ${
+            selectedLineId === line.id
+              ? 'bg-blue-500 text-white border-blue-500'
+              : 'border-gray-300 hover:border-blue-500 hover:text-blue-500'
+          }`}
+                >
                   {line.name}
-                </option>
+                </button>
               ))}
-            </select>
+            </div>
           </div>
         )}
+
       </div>
 
       {error && (
@@ -124,71 +147,109 @@ const ChessStudyTool = () => {
             {selectedOpening.name} - {selectedLine.name}
           </h1>
 
-          <div className="mb-6">
-            <p className="text-gray-700 whitespace-pre-wrap">
-              {getCurrentNote()}
-            </p>
+          <div className="mt-6">
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Left column - Moves list (25% on large screens) */}
+        <div className="w-full lg:w-1/4">
+          <h3 className="text-sm font-medium text-gray-700 mb-2">Moves:</h3>
+
+          {/* Starting position */}
+          <div className="mb-2">
+            <button
+              onClick={() => setCurrentPosition(0)}
+              className={`
+                px-2 py-1 rounded
+                text-sm font-medium
+                transition-all duration-150 ease-in-out
+                ${currentPosition === 0
+                  ? 'bg-blue-100 text-blue-800 shadow-sm'
+                  : 'hover:bg-gray-200 hover:shadow-sm'
+                }
+              `}
+            >
+              Starting Position
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Chess Board */}
-            <div className="lg:col-span-2">
-              <div className="bg-white rounded-lg shadow-lg p-4">
-                <div className="w-full aspect-square bg-gray-100 rounded-lg">
-                  <div className="bg-white rounded-lg shadow-lg p-4">
-                    <ChessBoard
-                      fen={selectedLine.positions[currentPosition].fen}
-                      size="full"
+          {/* Move list with consistent spacing */}
+          <div
+            ref={containerRef}
+            className="h-48 lg:h-auto lg:max-h-[20rem] overflow-y-auto"
+          >
+            <div className="grid grid-cols-2 gap-x-1 gap-y-2">
+              {selectedLine.positions.slice(1).map((pos, index) => (
+                <div key={index} className="flex items-center gap-1">
+                  {index % 2 === 0 && (
+                    <span className="text-sm text-gray-500 font-medium">
+                      {`${Math.floor(index / 2) + 1}.`}
+                    </span>
+                  )}
+                  <button
+                    ref={el => moveRefs.current[index + 1] = el}
+                    onClick={() => setCurrentPosition(index + 1)}
+                    className={`
+                      flex items-center gap-1 px-2 py-1 rounded
+                      text-sm font-medium
+                      transition-all duration-150 ease-in-out
+                      ${currentPosition === index + 1
+                        ? 'bg-blue-100 text-blue-800 shadow-sm'
+                        : 'hover:bg-gray-200 hover:shadow-sm'
+                      }
+                    `}
+                  >
+                    <img
+                      src={getPieceImage(pos.move, index)}
+                      alt=""
+                      className="w-4 h-4"
                     />
-                  </div>
+                    <span>{pos.move.replace(/[KQRBN]/, '')}</span>
+                  </button>
                 </div>
-              </div>
-
-              {/* Navigation Controls */}
-              <div className="flex justify-center gap-4 mt-4">
-                <button
-                  onClick={goToPreviousMove}
-                  className="p-2 bg-white rounded-full shadow hover:bg-gray-100 disabled:opacity-50"
-                  disabled={currentPosition === 0}
-                >
-                  <ChevronLeft className="w-6 h-6" />
-                </button>
-                <button
-                  onClick={goToNextMove}
-                  className="p-2 bg-white rounded-full shadow hover:bg-gray-100 disabled:opacity-50"
-                  disabled={currentPosition === selectedLine.positions.length - 1}
-                >
-                  <ChevronRight className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
-
-            {/* Information Panel */}
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <div>
-                <h2 className="text-xl font-semibold mb-2">Move List</h2>
-                <div className="space-y-2">
-                  {selectedLine.positions.map((position, index) => (
-                    <div
-                      key={index}
-                      onClick={() => setCurrentPosition(index)}
-                      className={`
-                        p-2 rounded cursor-pointer
-                        ${currentPosition === index ? 'bg-blue-100' : 'hover:bg-gray-100'}
-                      `}
-                    >
-                      <div className="font-medium">{position.move}</div>
-                      {selectedOpening.notes?.[position.fen] && (
-                        <div className="text-sm text-gray-600 truncate">
-                          {selectedOpening.notes[position.fen].content}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              ))}
             </div>
           </div>
+        </div>
+
+        {/* Middle column - Chessboard and navigation (50% on large screens) */}
+        <div className="w-full lg:w-1/2">
+          <div className="bg-white rounded-lg shadow-lg p-4">
+            <div className="w-full aspect-square bg-gray-100 rounded-lg">
+              <ChessBoard
+                fen={selectedLine.positions[currentPosition].fen}
+                size="full"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-center gap-4 mt-4">
+            <button
+              onClick={() => setCurrentPosition(prev => Math.max(0, prev - 1))}
+              disabled={currentPosition === 0}
+              className="p-2 bg-white rounded-full shadow hover:bg-gray-100 disabled:opacity-50"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <button
+              onClick={() => setCurrentPosition(prev => Math.min(selectedLine.positions.length - 1, prev + 1))}
+              disabled={currentPosition === selectedLine.positions.length - 1}
+              className="p-2 bg-white rounded-full shadow hover:bg-gray-100 disabled:opacity-50"
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+
+        {/* Right column - Review (25% on large screens) */}
+        <div className="w-full lg:w-1/4">
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="text-gray-700 whitespace-pre-wrap">
+              {getCurrentNote()}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
         </>
       )}
     </div>

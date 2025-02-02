@@ -15,9 +15,6 @@ const OpeningTree = () => {
   useEffect(() => {
     const loadedOpenings = getOpenings();
     setOpenings(loadedOpenings);
-    if (loadedOpenings.length > 0) {
-      setSelectedOpening(loadedOpenings[0]);
-    }
   }, []);
 
   const getLineById = (lineId) => {
@@ -303,8 +300,32 @@ const TreeNode = ({ node, x, y, availableWidth }) => {
     </g>
   );
 };
+
   if (!selectedOpening) {
-    return <div className="p-4">No openings found</div>;
+    return (
+    <div className="p-4">
+      <select
+        className="mb-4 w-full max-w-xs p-2 border rounded-md shadow-sm"
+        value={selectedOpening?.id || ''}
+        onChange={(e) => {
+          const opening = openings.find(o => o.id === e.target.value);
+          setSelectedOpening(opening || null);
+        }}
+      >
+        <option value="">Select an opening</option>
+        {openings.map(opening => (
+          <option key={opening.id} value={opening.id}>
+            {opening.name} ({opening.isWhite ? 'White' : 'Black'})
+          </option>
+        ))}
+      </select>
+      <div className="text-gray-600">
+        {openings.length === 0
+          ? "No openings found"
+          : "Please select an opening to view its move tree"}
+      </div>
+    </div>
+  );
   }
 
   const moveTree = buildMoveTree(selectedOpening.lines);
@@ -312,11 +333,16 @@ const TreeNode = ({ node, x, y, availableWidth }) => {
 
   return (
     <div className="p-4">
+
       <select
         className="mb-4 w-full max-w-xs p-2 border rounded-md shadow-sm"
-        value={selectedOpening.id}
-        onChange={(e) => setSelectedOpening(openings.find(o => o.id === e.target.value))}
+        value={selectedOpening?.id || ''}
+        onChange={(e) => {
+          const opening = openings.find(o => o.id === e.target.value);
+          setSelectedOpening(opening || null);
+        }}
       >
+        <option value="">Select an opening</option>
         {openings.map(opening => (
           <option key={opening.id} value={opening.id}>
             {opening.name} ({opening.isWhite ? 'White' : 'Black'})

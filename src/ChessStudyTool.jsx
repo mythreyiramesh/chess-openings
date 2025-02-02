@@ -28,17 +28,6 @@ const ChessStudyTool = ({ initialOpeningId, initialLineId }) => {
     }
   }, [initialOpeningId, initialLineId, openings]);
 
-  // Only set default line if no initialLineId is provided
-  useEffect(() => {
-    if (selectedOpeningId && !initialLineId) {
-      const opening = openings.find(op => op.id === selectedOpeningId);
-      if (opening && opening.lines.length > 0) {
-        setSelectedLineId(opening.lines[0].id);
-        setCurrentPosition(0);
-      }
-    }
-  }, [selectedOpeningId, initialLineId, openings]);
-
   // Autoscroll effect
   useEffect(() => {
     if (currentPosition > 0 && moveRefs.current[currentPosition] && containerRef.current) {
@@ -60,12 +49,6 @@ const ChessStudyTool = ({ initialOpeningId, initialLineId }) => {
   const loadOpenings = () => {
     const savedOpenings = getOpenings();
     setOpenings(savedOpenings);
-    if (savedOpenings.length > 0) {
-      setSelectedOpeningId(savedOpenings[0].id);
-      if (savedOpenings[0].lines.length > 0) {
-        setSelectedLineId(savedOpenings[0].lines[0].id);
-      }
-    }
   };
 
   const selectedOpening = openings.find(op => op.id === selectedOpeningId);
@@ -100,12 +83,13 @@ const ChessStudyTool = ({ initialOpeningId, initialLineId }) => {
             <select
               value={selectedOpeningId || ''}
               onChange={(e) => {
-                setSelectedOpeningId(e.target.value);
+                setSelectedOpeningId(e.target.value || null); // Convert empty string to null
+                setSelectedLineId(null); // Reset line selection when opening changes
                 setCurrentPosition(0);
               }}
               className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="" disabled>Select an opening</option>
+              <option value="">Select an opening</option>
               {openings.map(opening => (
                 <option key={opening.id} value={opening.id}>
                   {opening.name} ({opening.isWhite ? 'White' : 'Black'})

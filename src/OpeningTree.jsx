@@ -9,6 +9,8 @@ const OpeningTree = () => {
   const [selectedOpening, setSelectedOpening] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isLineSummaryDialogOpen, setIsLineSummaryDialogOpen] = useState(false);
+  const [selectedLineId, setSelectedLineId] = useState(null);
 
   useEffect(() => {
     const loadedOpenings = getOpenings();
@@ -17,6 +19,10 @@ const OpeningTree = () => {
       setSelectedOpening(loadedOpenings[0]);
     }
   }, []);
+
+  const getLineById = (lineId) => {
+  return selectedOpening?.lines.find(line => line.id === lineId);
+};
 
   const buildMoveTree = (lines) => {
     const root = { children: {}, move: 'start', depth: 0 };
@@ -31,17 +37,17 @@ const OpeningTree = () => {
             notes: selectedOpening.notes?.[position.fen]?.content || '',
             children: {},
             depth: index + 1,
-            lines: [line.name],
+            lines: [{ id: line.id, name: line.name }], // Store both id and name
             isFirstUniqueMove: false
           };
-        } else {
-          if (!currentNode.children[position.move].lines.includes(line.name)) {
-            currentNode.children[position.move].lines.push(line.name);
-          }
+        }  else {
+        if (!currentNode.children[position.move].lines.some(l => l.id === line.id)) {
+          currentNode.children[position.move].lines.push({ id: line.id, name: line.name });
         }
-        currentNode = currentNode.children[position.move];
-      });
+      }
+      currentNode = currentNode.children[position.move];
     });
+  });
 
     const hasMultipleBranches = (node) => {
       const children = Object.values(node.children);
@@ -94,106 +100,176 @@ const OpeningTree = () => {
       leafCount: totalLeaves
     };
   };
+const TreeNode = ({ node, x, y, availableWidth }) => {
+  const children = Object.values(node.children);
+  const nodeWidth = 120;
+  const nodeHeight = 40;
+  const levelHeight = 80;
 
-  const TreeNode = ({ node, x, y, availableWidth }) => {
-    const children = Object.values(node.children);
-    const nodeWidth = 120;
-    const nodeHeight = 40;
-    const levelHeight = 80;
-
-    const handleNodeClick = (node) => {
-      if (node.move !== 'start') {
-        setSelectedNode(node);
-        setIsDialogOpen(true);
-      }
+  const getPieceImage = (move, depth) => {
+    const pieceMap = {
+      'K': 'k', 'Q': 'q', 'R': 'r', 'B': 'b', 'N': 'n', 'P': 'p'
     };
 
-    if (node.move === 'start') {
-      return (
-        <g>
-          {children.map((child, index) => {
-            const childDims = calculateDimensions(child);
-            return (
-              <TreeNode
-                key={child.move}
-                node={child}
-                x={x}
-                y={levelHeight}
-                availableWidth={childDims.width}
-              />
-            );
-          })}
-        </g>
-      );
+    const piece = move.match(/^[KQRBN]/)?.[0] || 'P';
+    const color = (depth - 1) % 2 === 1 ? 'w' : 'b';
+    const pieceLetter = pieceMap[piece].toLowerCase();
+
+    return `/pieces/${color}${pieceLetter}.svg`;
+  };
+
+  const getMoveNumber = (depth) => {
+    return Math.ceil((depth - 1) / 2);
+  };
+
+  const getMoveNotation = (move, depth) => {
+    const moveNumber = getMoveNumber(depth);
+    const isWhiteMove = (depth - 1) % 2 === 1;
+
+    if (isWhiteMove) {
+      return `${moveNumber}.`;
     }
+    return '';
+  };
 
-    const childDimensions = children.map(child => calculateDimensions(child));
-    const totalChildWidth = childDimensions.reduce((sum, dim) => sum + dim.width, 0);
-    let currentX = x - totalChildWidth / 2;
+  const handleNodeClick = (node) => {
+    if (node.move !== 'start') {
+      setSelectedNode(node);
+      setIsDialogOpen(true);
+    }
+  };
 
+  if (node.move === 'start') {
     return (
       <g>
-        <g
-          onClick={() => handleNodeClick(node)}
-          className="cursor-pointer"
-        >
-          <rect
-            x={x - nodeWidth/2}
-            y={y}
-            width={nodeWidth}
-            height={nodeHeight}
-            rx="4"
-            className={`stroke-gray-300 ${node.notes ? 'fill-blue-50' : 'fill-white'} hover:fill-gray-100`}
-          />
-
-          <text
-            x={x}
-            y={y + nodeHeight/2}
-            className="text-sm font-medium pointer-events-none"
-            textAnchor="middle"
-            dominantBaseline="middle"
-          >
-            {`${Math.ceil(node.depth / 2)}${node.depth % 2 === 0 ? '...' : '.'} ${node.move}`}
-          </text>
-
-          {node.isFirstUniqueMove && (
-            <text
-              x={x}
-              y={y - 8}
-              className="text-xs text-gray-500 pointer-events-none"
-              textAnchor="middle"
-            >
-              {node.lines.join(', ')}
-            </text>
-          )}
-
-        </g>
-
         {children.map((child, index) => {
-          const childWidth = childDimensions[index].width;
-          const childX = currentX + childWidth / 2;
-          currentX += childWidth;
-
+          const childDims = calculateDimensions(child);
           return (
-            <g key={`${child.move}-${index}`}>
-              <path
-                d={`M ${x} ${y + nodeHeight} L ${childX} ${y + levelHeight}`}
-                className="stroke-gray-300"
-                fill="none"
-              />
-              <TreeNode
-                node={child}
-                x={childX}
-                y={y + levelHeight}
-                availableWidth={childWidth}
-              />
-            </g>
+            <TreeNode
+              key={child.move}
+              node={child}
+              x={x}
+              y={levelHeight}
+              availableWidth={childDims.width}
+            />
           );
         })}
       </g>
     );
-  };
+  }
 
+  const childDimensions = children.map(child => calculateDimensions(child));
+  const totalChildWidth = childDimensions.reduce((sum, dim) => sum + dim.width, 0);
+  let currentX = x - totalChildWidth / 2;
+
+  return (
+<g>
+      <g onClick={() => handleNodeClick(node)} className="cursor-pointer">
+        <rect
+          x={x - nodeWidth/2}
+          y={y}
+          width={nodeWidth}
+          height={nodeHeight}
+          rx="4"
+          className={`stroke-gray-300 ${node.notes ? 'fill-blue-50' : 'fill-white'} hover:fill-gray-100`}
+        />
+        {node.move === 'Starting Position' ? (
+          <text
+            x={x}  // Centered x position
+            y={y + nodeHeight/2}
+            className="text-sm font-medium pointer-events-none"
+            textAnchor="middle"  // This centers the text
+            dominantBaseline="middle"
+          >
+            {node.move}
+          </text>
+        ) : (
+          <>
+            <text
+              x={x - nodeWidth/2 + 10}
+              y={y + nodeHeight/2}
+              className="text-sm font-medium pointer-events-none"
+              textAnchor="start"
+              dominantBaseline="middle"
+            >
+              {getMoveNotation(node.move, node.depth)}
+            </text>
+            <image
+              href={getPieceImage(node.move, node.depth)}
+              x={x - nodeWidth/2 + 35}
+              y={y + (nodeHeight - 20)/2}
+              width="20"
+              height="20"
+              className="pointer-events-none"
+            />
+            <text
+              x={x - nodeWidth/2 + 60}
+              y={y + nodeHeight/2}
+              className="text-sm font-medium pointer-events-none"
+              textAnchor="start"
+              dominantBaseline="middle"
+            >
+              {node.move.replace(/^[KQRBN]/, '')}
+            </text>
+          </>
+        )}
+
+        {node.isFirstUniqueMove && node.lines.length === 1 && (
+          <g>
+            <rect
+              x={x - 50}
+              y={y - 20}
+              width={100}
+              height={16}
+              rx="8"
+              className="fill-gray-100 stroke-gray-300 cursor-pointer hover:fill-gray-200"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedLineId(node.lines[0].id);
+                setIsLineSummaryDialogOpen(true);
+              }}
+            />
+            <text
+              x={x}
+              y={y - 12}
+              className="text-xs font-medium text-blue-600 cursor-pointer"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedLineId(node.lines[0].id);
+                setIsLineSummaryDialogOpen(true);
+              }}
+            >
+              {node.lines[0].name}
+            </text>
+          </g>
+        )}
+      </g>
+      {children.map((child, index) => {
+        const childWidth = childDimensions[index].width;
+        const childX = currentX + childWidth / 2;
+        currentX += childWidth;
+
+        return (
+          <g key={`${child.move}-${index}`}>
+            <path
+              d={`M ${x} ${y + nodeHeight} L ${childX} ${y + levelHeight}`}
+              className="stroke-gray-300"
+              fill="none"
+            />
+            <TreeNode
+              node={child}
+              x={childX}
+              y={y + levelHeight}
+              availableWidth={childWidth}
+            />
+          </g>
+        );
+      })}
+    </g>
+  );
+};
   if (!selectedOpening) {
     return <div className="p-4">No openings found</div>;
   }
@@ -261,7 +337,6 @@ const OpeningTree = () => {
                 </div>
 
                 <div>
-                  <h3 className="font-medium mb-2">Notes:</h3>
                   <p className="text-gray-600">
                     {selectedNode?.notes || "No notes for this position."}
                   </p>
@@ -271,6 +346,37 @@ const OpeningTree = () => {
           </Dialog.Panel>
         </div>
       </Dialog>
+      {/* Line Summary Dialog */}
+<Dialog
+  open={isLineSummaryDialogOpen}
+  onClose={() => setIsLineSummaryDialogOpen(false)}
+  className="relative z-50"
+>
+  <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+
+  <div className="fixed inset-0 flex items-center justify-center p-4">
+    <Dialog.Panel className="mx-auto max-w-lg w-full bg-white rounded-xl shadow-lg">
+      <div className="relative p-6">
+        <button
+          onClick={() => setIsLineSummaryDialogOpen(false)}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-500"
+        >
+          <X className="h-6 w-6" />
+        </button>
+
+        <Dialog.Title className="text-lg font-medium mb-4">
+          {getLineById(selectedLineId)?.name}
+        </Dialog.Title>
+
+        <div className="prose prose-sm">
+          <p className="text-gray-600">
+            {getLineById(selectedLineId)?.summary || "No summary available for this line."}
+          </p>
+        </div>
+      </div>
+    </Dialog.Panel>
+  </div>
+</Dialog>
     </div>
   );
 };

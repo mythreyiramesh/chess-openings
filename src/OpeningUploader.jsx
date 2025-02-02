@@ -82,6 +82,24 @@ const OpeningUploader = () => {
     }
   }, [mode, selectedOpeningId, openings]);
 
+   // Effect to handle auto-scrolling when currentPosition changes
+  useEffect(() => {
+    const moveButton = moveRefs.current[currentPosition];
+    if (moveButton && containerRef.current) {
+      const container = containerRef.current;
+      const buttonRect = moveButton.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+
+      if (buttonRect.bottom > containerRect.bottom || buttonRect.top < containerRect.top) {
+        moveButton.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+        });
+      }
+    }
+  }, [currentPosition]);
+
+
     const handleExport = () => {
     exportOpenings();
   };
@@ -134,22 +152,13 @@ const OpeningUploader = () => {
   }
 };
 
- // Effect to handle auto-scrolling when currentPosition changes
-  useEffect(() => {
-    const moveButton = moveRefs.current[currentPosition];
-    if (moveButton && containerRef.current) {
-      const container = containerRef.current;
-      const buttonRect = moveButton.getBoundingClientRect();
-      const containerRect = container.getBoundingClientRect();
-
-      if (buttonRect.bottom > containerRect.bottom || buttonRect.top < containerRect.top) {
-        moveButton.scrollIntoView({
-          behavior: 'smooth',
-          block: 'nearest',
-        });
-      }
-    }
-  }, [currentPosition]);
+  const handleResetAll = () => {
+  if (window.confirm('Are you sure you want to remove all openings? This action cannot be undone.')) {
+    localStorage.removeItem('openings');
+    setOpenings([]);
+    resetAll();
+  }
+};
 
   const getPieceImage = (move, index) => {
     const pieceMap = {
@@ -396,6 +405,15 @@ return (
           Export
         </button>
       )}
+      {openings.length > 0 && (
+      <button
+        onClick={handleResetAll}
+        className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center gap-2"
+      >
+        <Trash2 className="w-4 h-4" />
+        Reset All
+      </button>
+    )}
     </div>
     {/* Mode Selection */}
     <div className="flex gap-4 mb-6">

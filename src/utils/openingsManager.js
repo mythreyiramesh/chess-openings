@@ -87,6 +87,7 @@ export const addLineToOpening = (openingId, { line, notes }) => {
     const newLine = {
       id: lineId,
       name: line.name,
+      summary: line.summary || '', // Add summary with default empty string
       positions: line.positions
     };
 
@@ -193,6 +194,7 @@ export const createNewOpening = (name, { line, notes }) => {
     lines: [{
       id: lineId,
       name: line.name,
+      summary: line.summary || '',
       positions: line.positions
     }]
   };
@@ -239,6 +241,11 @@ export const importOpenings = async (file) => {
           opening.lines.forEach(line => {
             if (!line.id || !line.name || !Array.isArray(line.positions)) {
               throw new Error('Invalid line format: missing required fields');
+            }
+
+            // Ensure summary exists
+            if (!line.summary) {
+              line.summary = '';
             }
 
             // Validate positions
@@ -299,6 +306,7 @@ export const exportOpenings = () => {
   lines: [
     {
       id: "line-uuid-1",
+      summary: "Brief description of the line",
       name: "Main Line",
       positions: [
         {

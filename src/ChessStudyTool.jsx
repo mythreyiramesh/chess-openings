@@ -147,6 +147,16 @@ const ChessStudyTool = () => {
             {selectedOpening.name} - {selectedLine.name}
           </h1>
 
+          {/* Add summary here */}
+          {selectedLine.summary && (
+            <p className="text-gray-600 text-lg mb-6">
+              {selectedLine.summary}
+            </p>
+          )}
+
+          {/* If no summary, maintain spacing */}
+          {!selectedLine.summary && <div className="mb-6" />}
+
           <div className="mt-6">
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left column - Moves list (25% on large screens) */}

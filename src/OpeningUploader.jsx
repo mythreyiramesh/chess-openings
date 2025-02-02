@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Save, ChevronLeft, ChevronRight, Upload, Trash2, Download } from 'lucide-react';
 import { createNewOpening, addLineToOpening, getOpenings, updateOpeningNotes,
-         exportOpenings, importOpenings, deleteOpening, deleteLine } from './utils/openingsManager';
+         exportOpenings, importOpenings, deleteOpening, deleteLine, updateLine } from './utils/openingsManager';
 import ChessBoard from './ChessBoard';
 import { Chess } from 'chess.js';
 
@@ -15,6 +15,8 @@ const OpeningUploader = () => {
   const [notes, setNotes] = useState({});
   const [existingNotes, setExistingNotes] = useState({});
   const [modifiedNotes, setModifiedNotes] = useState({});
+  const [summary, setSummary] = useState('');
+  const [modifiedSummary, setModifiedSummary] = useState(false);
   const [currentPosition, setCurrentPosition] = useState(0);
   const [pgn, setPgn] = useState('');
   const [isPgnParsed, setIsPgnParsed] = useState(false);
@@ -49,6 +51,8 @@ const OpeningUploader = () => {
           existingNoteContent[fen] = noteData.content;
         });
         setNotes(existingNoteContent);
+        setSummary(line.summary || ''); // Ensure we handle undefined summary
+        setModifiedSummary(false);
         setModifiedNotes({});
         setIsPgnParsed(true);
         setCurrentPosition(0);
@@ -284,10 +288,27 @@ const parsePGNToPositions = (pgnText) => {
           return;
         }
         updateOpeningNotes(selectedOpeningId, notesObject);
-        alert('Notes updated successfully!');
+        // If summary was modified, update the line
+      if (modifiedSummary) {
+        const opening = openings.find(op => op.id === selectedOpeningId);
+        const existingLine = opening?.lines.find(l => l.id === selectedLineId);
+
+        updateLine(selectedOpeningId, selectedLineId, {
+          name: existingLine.name, // Preserve existing name
+          summary: summary,
+          positions: positions.map(pos => ({
+            fen: pos.fen,
+            move: pos.move,
+            from: pos.from,
+            to: pos.to
+          }))
+        });
+      }
+      alert('Notes and summary updated successfully!');
       } else {
         const lineData = {
-          name: lineName || 'Main Line',
+          name: lineName || '',
+          summary: summary,
           positions: positions.map(pos => ({
             fen: pos.fen,
             move: pos.move,
@@ -338,6 +359,8 @@ const parsePGNToPositions = (pgnText) => {
     setLineName('');
     setSelectedOpeningId('');
     setSelectedLineId('');
+    setSummary(''); // Add this line
+    setModifiedSummary(false); // Add this line
   };
 
 return (
@@ -496,6 +519,49 @@ return (
         </button>
       </form>
     )}
+{/* Line Summary Section */}
+{(isPgnParsed || (mode === 'modify' && selectedOpeningId && selectedLineId)) && (
+  <div className="mb-6">
+    <div className="flex justify-between items-center mb-2">
+      <label className="block font-medium text-gray-700">
+        Line Summary
+      </label>
+      {summary && !modifiedSummary && (
+        <span className="text-sm text-gray-500">
+          Existing summary
+        </span>
+      )}
+      {summary && modifiedSummary && (
+        <span className="text-sm text-gray-500">
+          Modified from existing summary
+        </span>
+      )}
+    </div>
+    <textarea
+      value={summary}
+      onChange={(e) => {
+        setSummary(e.target.value);
+        if (mode === 'modify' && selectedOpeningId && selectedLineId) {
+          const opening = openings.find(op => op.id === selectedOpeningId);
+          const line = opening?.lines.find(l => l.id === selectedLineId);
+          if (line) {
+            setModifiedSummary(e.target.value !== line.summary);
+          }
+        } else {
+          setModifiedSummary(true);
+        }
+      }}
+      className={`w-full h-24 p-3 border rounded-lg ${
+        modifiedSummary
+          ? 'border-yellow-500'
+          : summary
+          ? 'border-gray-300 bg-gray-50'
+          : 'border-gray-300'
+      }`}
+      placeholder="Add a summary for this line..."
+    />
+  </div>
+)}
 
     {/* Position Review Section */}
     {isPgnParsed && positions.length > 0 && (

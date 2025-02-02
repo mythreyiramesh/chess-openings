@@ -88,7 +88,10 @@ export const addLineToOpening = (openingId, { line, notes }) => {
       id: lineId,
       name: line.name,
       summary: line.summary || '', // Add summary with default empty string
-      positions: line.positions
+      positions: line.positions.map(pos => ({  // Add map function here
+        ...pos,
+        noteworthy: pos.noteworthy || false
+      }))
     };
 
     // Add new notes
@@ -196,7 +199,10 @@ export const createNewOpening = (name, isWhite, { line, notes }) => {
       id: lineId,
       name: line.name,
       summary: line.summary || '',
-      positions: line.positions
+      positions: line.positions.map(pos => ({  // Add map function here
+        ...pos,
+        noteworthy: pos.noteworthy || false
+      }))
     }]
   };
 
@@ -255,11 +261,13 @@ export const importOpenings = async (file) => {
               line.summary = '';
             }
 
-            // Validate positions
             line.positions.forEach(position => {
-              if (!position.fen || !position.move) {
-                throw new Error('Invalid position format: missing required fields');
+              if (!position.fen || !position.move || typeof position.noteworthy !== 'boolean') {
+                throw new Error('Invalid position format: missing required fields (fen, move, or noteworthy)');
               }
+
+            position.noteworthy = position.noteworthy || false;
+
             });
           });
         });
@@ -320,6 +328,9 @@ export const exportOpenings = () => {
         {
           fen: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
           move: "e4",
+          from: "e2",
+          to: "e4",
+          noteworthy: false,
         }
       ]
     }

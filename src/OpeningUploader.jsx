@@ -189,7 +189,8 @@ const parsePGNToPositions = (pgnText) => {
       fen: chess.fen(),
       move: 'Starting Position',
       san: '',
-      moveNumber: 0
+      moveNumber: 0,
+      noteworthy: false
     }];
 
     for (const move of movesList) {
@@ -201,7 +202,8 @@ const parsePGNToPositions = (pgnText) => {
             move: moveResult.san,
             from: moveResult.from,
             to: moveResult.to,
-            moveNumber: Math.floor(positions.length / 2)
+            moveNumber: Math.floor(positions.length / 2),
+            noteworthy: false
           });
         }
       } catch (moveError) {
@@ -301,7 +303,8 @@ const parsePGNToPositions = (pgnText) => {
             fen: pos.fen,
             move: pos.move,
             from: pos.from,
-            to: pos.to
+            to: pos.to,
+            noteworthy: pos.noteworthy || false,
           }))
         });
       }
@@ -314,7 +317,8 @@ const parsePGNToPositions = (pgnText) => {
             fen: pos.fen,
             move: pos.move,
             from: pos.from,
-            to: pos.to
+            to: pos.to,
+            noteworthy: pos.noteworthy || false
           }))
         };
 
@@ -693,11 +697,40 @@ return (
           {existingNotes[positions[currentPosition].fen] && (
             <span className="text-sm text-gray-500">
               {modifiedNotes[positions[currentPosition].fen]
-                ? "Modified from existing note"
-                : "Existing note"}
+               ? "Modified from existing note"
+               : "Existing note"}
             </span>
           )}
         </div>
+
+        {/* Add noteworthy checkbox */}
+        <div className="flex items-center gap-2 mb-2">
+          <input
+            type="checkbox"
+            id="noteworthy"
+            checked={positions[currentPosition].noteworthy || false}
+            onChange={(e) => {
+              // Update the positions array
+              const newPositions = [...positions];
+              newPositions[currentPosition] = {
+                ...newPositions[currentPosition],
+                noteworthy: e.target.checked
+              };
+              setPositions(newPositions);
+
+              // Mark this position as modified
+              setModifiedNotes(prev => ({
+                ...prev,
+                [positions[currentPosition].fen]: true
+              }));
+            }}
+            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+          />
+          <label htmlFor="noteworthy" className="text-sm text-gray-700">
+            Mark as noteworthy position
+          </label>
+        </div>
+
         <textarea
           value={notes[positions[currentPosition].fen] || ''}
           onChange={(e) => handleUpdateNotes(e.target.value)}

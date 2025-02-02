@@ -35,6 +35,7 @@ const OpeningTree = () => {
             move: position.move,
             fen: position.fen,
             notes: selectedOpening.notes?.[position.fen]?.content || '',
+            noteworthy: position.noteworthy || false,
             children: {},
             depth: index + 1,
             lines: [{ id: line.id, name: line.name }], // Store both id and name
@@ -43,6 +44,10 @@ const OpeningTree = () => {
         }  else {
         if (!currentNode.children[position.move].lines.some(l => l.id === line.id)) {
           currentNode.children[position.move].lines.push({ id: line.id, name: line.name });
+          // Update noteworthy if this position is noteworthy in any line
+          if (position.noteworthy) {
+            currentNode.children[position.move].noteworthy = true;
+          }
         }
       }
       currentNode = currentNode.children[position.move];
@@ -175,7 +180,7 @@ const TreeNode = ({ node, x, y, availableWidth }) => {
   let currentX = x - totalChildWidth / 2;
 
   return (
-<g>
+    <g>
       <g onClick={() => handleNodeClick(node)} className="cursor-pointer">
         <rect
           x={x - nodeWidth/2}
@@ -183,8 +188,24 @@ const TreeNode = ({ node, x, y, availableWidth }) => {
           width={nodeWidth}
           height={nodeHeight}
           rx="4"
-          className={`stroke-gray-300 ${node.notes ? 'fill-blue-50' : 'fill-white'} hover:fill-gray-100`}
+          className={`stroke-gray-300 ${
+    node.noteworthy
+      ? 'fill-purple-50'    // Light purple for any noteworthy position
+      : node.notes
+        ? 'fill-blue-50'    // Light blue for positions with notes (but not noteworthy)
+        : 'fill-white'      // White for positions without notes or noteworthy status
+  } hover:fill-gray-100`}
         />
+        {/* Add the purple dot for noteworthy positions */}
+        {node.noteworthy && (
+          <circle
+            cx={x + nodeWidth/2 - 6}
+            cy={y + 6}
+            r={4}
+            className="fill-purple-500"
+            style={{ pointerEvents: 'none' }}
+          />
+        )}
         {node.move === 'Starting Position' ? (
           <text
             x={x}  // Centered x position
@@ -353,7 +374,12 @@ const TreeNode = ({ node, x, y, availableWidth }) => {
 
                 <div>
                   <p className="text-gray-600">
-                    {selectedNode?.notes || "No notes for this position."}
+                    {selectedNode?.noteworthy && (
+                      <span className="block text-purple-600 font-medium mb-2">
+                        Position noteworthy
+                      </span>
+                    )}
+                    {selectedNode?.notes || "No additional notes."}
                   </p>
                 </div>
               </div>

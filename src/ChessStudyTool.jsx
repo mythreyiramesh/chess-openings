@@ -3,7 +3,7 @@ import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { getOpenings } from './utils/openingsManager';
 import ChessBoard from './ChessBoard';
 
-const ChessStudyTool = () => {
+const ChessStudyTool = ({ initialOpeningId, initialLineId }) => {
   const [openings, setOpenings] = useState([]);
   const [selectedOpeningId, setSelectedOpeningId] = useState(null);
   const [selectedLineId, setSelectedLineId] = useState(null);
@@ -12,19 +12,32 @@ const ChessStudyTool = () => {
   const containerRef = useRef(null);
   const moveRefs = useRef({});
 
+  // First, load openings
   useEffect(() => {
     loadOpenings();
   }, []);
 
+  // Then handle initial selection after openings are loaded
   useEffect(() => {
-    if (selectedOpeningId) {
+    if (initialOpeningId && openings.length > 0) {
+      setSelectedOpeningId(initialOpeningId);
+      if (initialLineId) {
+        setSelectedLineId(initialLineId);
+        setCurrentPosition(0);
+      }
+    }
+  }, [initialOpeningId, initialLineId, openings]);
+
+  // Only set default line if no initialLineId is provided
+  useEffect(() => {
+    if (selectedOpeningId && !initialLineId) {
       const opening = openings.find(op => op.id === selectedOpeningId);
       if (opening && opening.lines.length > 0) {
         setSelectedLineId(opening.lines[0].id);
         setCurrentPosition(0);
       }
     }
-  }, [selectedOpeningId]);
+  }, [selectedOpeningId, initialLineId, openings]);
 
   // Autoscroll effect
   useEffect(() => {

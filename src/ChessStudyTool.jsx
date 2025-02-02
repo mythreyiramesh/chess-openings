@@ -226,7 +226,9 @@ const ChessStudyTool = () => {
             <div className="w-full aspect-square bg-gray-100 rounded-lg">
               <ChessBoard
                 fen={selectedLine.positions[currentPosition].fen}
-                size="full"
+                move={selectedLine.positions[currentPosition].move}
+                positions={selectedLine.positions}
+                positionId={currentPosition}
               />
             </div>
           </div>

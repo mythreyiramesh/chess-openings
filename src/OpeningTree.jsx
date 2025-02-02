@@ -134,10 +134,22 @@ const TreeNode = ({ node, x, y, availableWidth }) => {
 
   const handleNodeClick = (node) => {
     if (node.move !== 'start') {
-      setSelectedNode(node);
+      // Get the first line this position belongs to
+      const lineId = node.lines[0]?.id;
+      const line = selectedOpening.lines.find(l => l.id === lineId);
+
+      // Find the position index in the line that matches this FEN
+      const positionIndex = line.positions.findIndex(pos => pos.fen === node.fen);
+
+      setSelectedNode({
+        ...node,
+        positions: line.positions,
+        positionIndex // use index instead of ID
+      });
       setIsDialogOpen(true);
     }
   };
+
 
   if (node.move === 'start') {
     return (
@@ -332,6 +344,9 @@ const TreeNode = ({ node, x, y, availableWidth }) => {
                 <div className="w-full aspect-square">
                   <ChessBoard
                     fen={selectedNode?.fen}
+                    move={selectedNode?.move}
+                    positions={selectedNode?.positions}
+                    positionId={selectedNode?.positionIndex} // pass index as ID
                     size="full"
                   />
                 </div>

@@ -645,7 +645,9 @@ return (
       <div className="w-full lg:w-1/2">
         <ChessBoard
           fen={positions[currentPosition].fen}
-          size="full"
+          move={positions[currentPosition].move}
+          positions={positions}
+          positionId={currentPosition}
         />
 
         <div className="flex justify-center gap-4 mt-4">

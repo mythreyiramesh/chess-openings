@@ -1,6 +1,45 @@
 import React from 'react';
+import { Chess } from 'chess.js';
 
-const ChessBoard = ({ fen, size = "full" }) => {
+const ChessBoard = ({
+  fen,  // current position FEN
+  move, // current move
+  positions, // array of all positions in this line
+  positionId, // current position ID
+  size = "full"
+}) => {
+  const findPreviousPosition = () => {
+    if (!positions || positionId === undefined) return null;
+
+    if (positionId > 0) {
+      return positions[positionId - 1].fen;
+    }
+    // If it's the first move, use the initial position
+    return 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  };
+
+  const parseMove = (moveStr, prevPosition) => {
+    if (!moveStr || !prevPosition) return null;
+
+    try {
+      const chess = new Chess(prevPosition);
+      const moveDetails = chess.moves({ verbose: true }).find(m =>
+        m.san === moveStr || m.lan === moveStr
+      );
+
+      if (moveDetails) {
+        return {
+          from: moveDetails.from,
+          to: moveDetails.to
+        };
+      }
+    } catch (e) {
+      console.error('Error parsing move:', e);
+    }
+
+    return null;
+  };
+
   const fenToBoard = (fen) => {
     const board = [];
     const fenBoard = fen.split(' ')[0];
@@ -29,21 +68,57 @@ const ChessBoard = ({ fen, size = "full" }) => {
     return `/pieces/${color}${pieceType}.svg`;
   };
 
+  const getSquareCoordinates = (square) => {
+    if (!square || square.length !== 2) return null;
+    const file = square.charAt(0).toLowerCase();
+    const rank = square.charAt(1);
+    const fileIndex = 'abcdefgh'.indexOf(file);
+    const rankIndex = '87654321'.indexOf(rank);
+    return { fileIndex, rankIndex };
+  };
+
+  const board = fenToBoard(fen);
+  const previousFen = findPreviousPosition();
+  const lastMove = previousFen ? parseMove(move, previousFen) : null;
+  const fromSquare = lastMove ? getSquareCoordinates(lastMove.from) : null;
+  const toSquare = lastMove ? getSquareCoordinates(lastMove.to) : null;
+
   const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
   const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
-  const board = fenToBoard(fen);
 
   return (
     <div className={`relative ${size === "full" ? "w-full" : "w-96"}`}>
-      {/* Coordinate wrapper - adds padding for coordinates */}
       <div className="pb-6 pr-6">
         <div className="relative aspect-square">
-          {/* Board background */}
           <img
             src="/board.png"
             alt="Chess Board"
             className="absolute top-0 left-0 w-full h-full"
           />
+
+          {/* Move highlights */}
+          {fromSquare && (
+            <div
+              className="absolute bg-yellow-500/40"
+              style={{
+                top: `${(fromSquare.rankIndex * 12.5)}%`,
+                left: `${(fromSquare.fileIndex * 12.5)}%`,
+                width: '12.5%',
+                height: '12.5%'
+              }}
+            />
+          )}
+          {toSquare && (
+            <div
+              className="absolute bg-yellow-500/40"
+              style={{
+                top: `${(toSquare.rankIndex * 12.5)}%`,
+                left: `${(toSquare.fileIndex * 12.5)}%`,
+                width: '12.5%',
+                height: '12.5%'
+              }}
+            />
+          )}
 
           {/* Pieces */}
           <div className="absolute top-0 left-0 w-full h-full">
@@ -72,9 +147,9 @@ const ChessBoard = ({ fen, size = "full" }) => {
             ))}
           </div>
 
-          {/* Rank coordinates (numbers) */}
+          {/* Coordinates */}
           <div className="absolute right-0 top-0 h-full -mr-6 w-6 flex flex-col">
-            {ranks.map((rank, index) => (
+            {ranks.map((rank) => (
               <div
                 key={rank}
                 className="flex-1 flex items-center justify-center text-sm font-medium"
@@ -85,9 +160,8 @@ const ChessBoard = ({ fen, size = "full" }) => {
             ))}
           </div>
 
-          {/* File coordinates (letters) */}
           <div className="absolute bottom-0 left-0 w-full -mb-6 h-6 flex">
-            {files.map((file, index) => (
+            {files.map((file) => (
               <div
                 key={file}
                 className="flex-1 flex items-center justify-center text-sm font-medium"

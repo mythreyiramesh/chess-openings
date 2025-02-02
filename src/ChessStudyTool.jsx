@@ -95,7 +95,7 @@ const ChessStudyTool = () => {
               <option value="" disabled>Select an opening</option>
               {openings.map(opening => (
                 <option key={opening.id} value={opening.id}>
-                  {opening.name}
+                  {opening.name} ({opening.isWhite ? 'White' : 'Black'})
                 </option>
               ))}
             </select>
@@ -144,7 +144,7 @@ const ChessStudyTool = () => {
       ) : (
         <>
           <h1 className="text-3xl font-bold mb-6 text-gray-800">
-            {selectedOpening.name} - {selectedLine.name}
+            {selectedOpening.name} ({selectedOpening.isWhite ? 'White' : 'Black'}) - {selectedLine.name}
           </h1>
 
           {/* Add summary here */}

@@ -185,11 +185,12 @@ export const deleteLine = (openingId, lineId) => {
   return null;
 };
 
-export const createNewOpening = (name, { line, notes }) => {
+export const createNewOpening = (name, isWhite, { line, notes }) => {
   const lineId = uuidv4();
   const newOpening = {
     id: uuidv4(),
     name: name,
+    isWhite: isWhite, // boolean property instead of color string
     notes: {},
     lines: [{
       id: lineId,
@@ -231,6 +232,12 @@ export const importOpenings = async (file) => {
           if (!opening.id || !opening.name || !Array.isArray(opening.lines)) {
             throw new Error('Invalid opening format: missing required fields');
           }
+
+          // Validate isWhite
+          if (typeof opening.isWhite !== 'boolean') {
+            throw new Error('Invalid opening format: isWhite must be a boolean');
+          }
+
 
           // Ensure notes object exists
           if (!opening.notes) {
@@ -294,6 +301,7 @@ export const exportOpenings = () => {
  {
   id: "uuid",
   name: "Opening Name",
+  isWhite: true, // boolean instead of color string
   notes: {
     "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1": {
       id: "note-uuid",

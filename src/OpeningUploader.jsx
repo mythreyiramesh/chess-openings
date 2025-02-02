@@ -8,6 +8,7 @@ import { Chess } from 'chess.js';
 const OpeningUploader = () => {
   const [mode, setMode] = useState('new'); // 'new', 'add', or 'modify'
   const [openingName, setOpeningName] = useState('');
+  const [isWhite, setIsWhite] = useState(true); // default to true for white
   const [lineName, setLineName] = useState('');
   const [selectedOpeningId, setSelectedOpeningId] = useState('');
   const [selectedLineId, setSelectedLineId] = useState('');
@@ -322,7 +323,7 @@ const parsePGNToPositions = (pgnText) => {
             alert('Please enter an opening name');
             return;
           }
-          createNewOpening(openingName, {
+          createNewOpening(openingName, isWhite, {
             line: lineData,
             notes: notesObject
           });
@@ -356,6 +357,7 @@ const parsePGNToPositions = (pgnText) => {
     setModifiedNotes({});
     setCurrentPosition(0);
     setOpeningName('');
+    setIsWhite(true); // Reset to default value
     setLineName('');
     setSelectedOpeningId('');
     setSelectedLineId('');
@@ -422,6 +424,7 @@ return (
     {/* Opening/Line Selection */}
 <div className="space-y-4 mb-6">
   {mode === 'new' ? (
+    <div className="space-y-4">
     <input
       type="text"
       value={openingName}
@@ -429,6 +432,19 @@ return (
       placeholder="Opening Name"
       className="w-full p-3 border rounded-lg"
     />
+    <div className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        id="isWhite"
+        checked={isWhite}
+        onChange={(e) => setIsWhite(e.target.checked)}
+        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+      />
+      <label htmlFor="isWhite" className="text-sm font-medium text-gray-700">
+        Opening for White
+      </label>
+    </div>
+  </div>
   ) : (
     <>
       <div className="flex gap-2">

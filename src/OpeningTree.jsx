@@ -298,7 +298,7 @@ const TreeNode = ({ node, x, y, availableWidth }) => {
       >
         {openings.map(opening => (
           <option key={opening.id} value={opening.id}>
-            {opening.name}
+            {opening.name} ({opening.isWhite ? 'White' : 'Black'})
           </option>
         ))}
       </select>

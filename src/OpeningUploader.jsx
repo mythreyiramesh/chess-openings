@@ -584,8 +584,11 @@ return (
 )}
 
     {/* Position Review Section */}
-    {isPgnParsed && positions.length > 0 && (
-  <div className="mt-6">
+    {((mode !== 'modify' && isPgnParsed) ||
+  (mode === 'modify' && selectedOpeningId && selectedLineId)) &&
+  positions.length > 0 && (
+
+    <div className="mt-6">
     <div className="flex flex-col lg:flex-row gap-6">
       {/* Left column - Moves list (25% on large screens) */}
       <div className="w-full lg:w-1/4">

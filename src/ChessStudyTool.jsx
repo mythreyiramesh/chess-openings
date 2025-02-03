@@ -252,6 +252,11 @@ const ChessStudyTool = ({ initialOpeningId, initialLineId }) => {
         <div className="w-full lg:w-1/4">
           <div className="bg-white rounded-lg shadow-lg p-6">
             <div className="text-gray-700 whitespace-pre-wrap">
+              {selectedLine?.positions[currentPosition]?.noteworthy && (
+                <span className="block text-purple-600 font-medium mb-2">
+                  Position noteworthy
+                </span>
+              )}
               {getCurrentNote()}
             </div>
           </div>

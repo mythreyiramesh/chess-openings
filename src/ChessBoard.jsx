@@ -65,7 +65,7 @@ const ChessBoard = ({
     if (!piece) return null;
     const color = piece === piece.toUpperCase() ? 'w' : 'b';
     const pieceType = piece.toLowerCase();
-    return `/pieces/${color}${pieceType}.svg`;
+    return `${import.meta.env.BASE_URL}pieces/${color}${pieceType}.svg`;
   };
 
   const getSquareCoordinates = (square) => {
@@ -91,7 +91,7 @@ const ChessBoard = ({
       <div className="pb-6 pr-6">
         <div className="relative aspect-square">
           <img
-            src="/board.png"
+            src={import.meta.env.BASE_URL + 'board.png'}
             alt="Chess Board"
             className="absolute top-0 left-0 w-full h-full"
           />

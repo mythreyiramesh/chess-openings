@@ -71,7 +71,7 @@ const ChessStudyTool = ({ initialOpeningId, initialLineId }) => {
     const color = index % 2 === 0 ? 'w' : 'b';
     const pieceLetter = pieceMap[piece].toLowerCase();
 
-    return `/pieces/${color}${pieceLetter}.svg`;
+    return `${import.meta.env.BASE_URL}pieces/${color}${pieceLetter}.svg`;
   };
 
   return (

@@ -117,7 +117,7 @@ const TreeNode = ({ node, x, y, availableWidth }) => {
     const color = (depth - 1) % 2 === 1 ? 'w' : 'b';
     const pieceLetter = pieceMap[piece].toLowerCase();
 
-    return `/pieces/${color}${pieceLetter}.svg`;
+    return `${import.meta.env.BASE_URL}/pieces/${color}${pieceLetter}.svg`;
   };
 
   const getMoveNumber = (depth) => {

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog } from '@headlessui/react';
-import { X } from 'lucide-react';
+import { X, ZoomIn, ZoomOut } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { getOpenings } from './utils/openingsManager';
 import ChessBoard from './ChessBoard';
 
@@ -11,6 +12,10 @@ const OpeningTree = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLineSummaryDialogOpen, setIsLineSummaryDialogOpen] = useState(false);
   const [selectedLineId, setSelectedLineId] = useState(null);
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [dimensions, setDimensions] = useState({ width: 1200, height: 600 });
+const containerRef = useRef(null);
 
   useEffect(() => {
     const loadedOpenings = getOpenings();
@@ -20,6 +25,38 @@ const OpeningTree = () => {
   const getLineById = (lineId) => {
   return selectedOpening?.lines.find(line => line.id === lineId);
 };
+
+  useEffect(() => {
+  if (selectedOpening) {
+    const newDimensions = {
+      width: Math.max(2000, Math.max(...selectedOpening.lines.map(line => line.positions.length)) * 250),
+      height: Math.max(800, selectedOpening.lines.length * 100)
+    };
+    setDimensions(newDimensions);
+
+    // Reset position and scale when opening changes
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+  }
+}, [selectedOpening]);
+
+
+  useEffect(() => {
+  if (selectedOpening && containerRef.current) {
+    const containerWidth = containerRef.current.clientWidth;
+    const containerHeight = containerRef.current.clientHeight;
+
+    // Calculate initial position to center both horizontally and vertically
+    const scaledWidth = dimensions.width * scale;
+    const scaledHeight = dimensions.height * scale;
+
+    setPosition({
+      x: Math.max(0, (containerWidth - scaledWidth) / 2),
+      y: Math.max(0, (containerHeight - scaledHeight) / 2)
+    });
+  }
+}, [selectedOpening, dimensions, scale]);
+
 
   const buildMoveTree = (lines) => {
     const root = { children: {}, move: 'start', depth: 0 };
@@ -76,37 +113,38 @@ const OpeningTree = () => {
   };
 
   const calculateDimensions = (node, depth = 0) => {
-    if (!node || Object.keys(node.children).length === 0) {
-      return {
-        width: 120,
-        height: depth * 80 + 40,
-        leafCount: 1
-      };
-    }
-
-    const children = Object.values(node.children);
-    const childDimensions = children.map(child =>
-      calculateDimensions(child, depth + 1)
-    );
-
-    const totalLeaves = childDimensions.reduce((sum, dim) => sum + dim.leafCount, 0);
-    const width = Math.max(
-      totalLeaves * 120 * 1.5,
-      children.length * 180
-    );
-    const height = Math.max(...childDimensions.map(d => d.height));
-
+  if (!node || Object.keys(node.children).length === 0) {
     return {
-      width,
-      height,
-      leafCount: totalLeaves
+      width: 120,
+      height: 60, // Reduced from 80
+      leafCount: 1
     };
+  }
+
+  const children = Object.values(node.children);
+  const childDimensions = children.map(child =>
+    calculateDimensions(child, depth + 1)
+  );
+
+  const totalLeaves = childDimensions.reduce((sum, dim) => sum + dim.leafCount, 0);
+  const width = Math.max(
+    totalLeaves * 120 * 1.5,
+    children.length * 180
+  );
+  const height = Math.max(...childDimensions.map(d => d.height)) + 60; // Added fixed spacing
+
+  return {
+    width,
+    height,
+    leafCount: totalLeaves
   };
-const TreeNode = ({ node, x, y, availableWidth }) => {
+};
+const TreeNode = ({ node, x, y, availableHeight }) => {
   const children = Object.values(node.children);
   const nodeWidth = 120;
   const nodeHeight = 40;
-  const levelHeight = 80;
+  const levelWidth = 180; // Increased for better horizontal spacing
+  const minVerticalSpacing = 80; // Minimum space between nodes
 
   const getPieceImage = (move, depth) => {
     const pieceMap = {
@@ -153,18 +191,32 @@ const TreeNode = ({ node, x, y, availableWidth }) => {
   };
 
 
+  // Calculate the total number of end nodes for this branch
+  const calculateTotalEndNodes = (node) => {
+    const children = Object.values(node.children);
+    if (children.length === 0) return 1;
+    return children.reduce((sum, child) => sum + calculateTotalEndNodes(child), 0);
+  };
+
   if (node.move === 'start') {
     return (
       <g>
         {children.map((child, index) => {
-          const childDims = calculateDimensions(child);
+          const totalEndNodes = calculateTotalEndNodes(child);
+          const totalSpacing = children.reduce((sum, n) => sum + calculateTotalEndNodes(n), 0) * minVerticalSpacing;
+          let accumulatedY = 0;
+          for (let i = 0; i < index; i++) {
+            accumulatedY += calculateTotalEndNodes(children[i]) * minVerticalSpacing;
+          }
+          const childY = y - (totalSpacing / 2) + accumulatedY + (totalEndNodes * minVerticalSpacing / 2);
+
           return (
             <TreeNode
               key={child.move}
               node={child}
-              x={x}
-              y={levelHeight}
-              availableWidth={childDims.width}
+              x={x + levelWidth}
+              y={childY}
+              availableHeight={totalEndNodes * minVerticalSpacing}
             />
           );
         })}
@@ -172,32 +224,30 @@ const TreeNode = ({ node, x, y, availableWidth }) => {
     );
   }
 
-  const childDimensions = children.map(child => calculateDimensions(child));
-  const totalChildWidth = childDimensions.reduce((sum, dim) => sum + dim.width, 0);
-  let currentX = x - totalChildWidth / 2;
-
   return (
     <g>
+
+      {/* Node rectangle and content */}
+
       <g onClick={() => handleNodeClick(node)} className="cursor-pointer">
         <rect
-          x={x - nodeWidth/2}
-          y={y}
+          x={x}
+          y={y - nodeHeight/2}
           width={nodeWidth}
           height={nodeHeight}
           rx="4"
           className={`stroke-gray-300 ${
-    node.noteworthy
-      ? 'fill-purple-50'    // Light purple for any noteworthy position
-      : node.notes
-        ? 'fill-blue-50'    // Light blue for positions with notes (but not noteworthy)
-        : 'fill-white'      // White for positions without notes or noteworthy status
-  } hover:fill-gray-100`}
+            node.noteworthy ? 'fill-purple-50'
+            : node.notes ? 'fill-blue-50'
+            : 'fill-white'
+          } hover:fill-gray-100`}
         />
+
         {/* Add the purple dot for noteworthy positions */}
         {node.noteworthy && (
           <circle
-            cx={x + nodeWidth/2 - 6}
-            cy={y + 6}
+            cx={x + nodeWidth - 10}
+            cy={y - nodeHeight/2 + 6}
             r={4}
             className="fill-purple-500"
             style={{ pointerEvents: 'none' }}
@@ -205,8 +255,8 @@ const TreeNode = ({ node, x, y, availableWidth }) => {
         )}
         {node.move === 'Starting Position' ? (
           <text
-            x={x}  // Centered x position
-            y={y + nodeHeight/2}
+            x={x + nodeWidth/2}  // Centered x position
+            y={y}
             className="text-sm font-medium pointer-events-none"
             textAnchor="middle"  // This centers the text
             dominantBaseline="middle"
@@ -215,41 +265,43 @@ const TreeNode = ({ node, x, y, availableWidth }) => {
           </text>
         ) : (
           <>
-            <text
-              x={x - nodeWidth/2 + 10}
-              y={y + nodeHeight/2}
-              className="text-sm font-medium pointer-events-none"
-              textAnchor="start"
-              dominantBaseline="middle"
-            >
-              {getMoveNotation(node.move, node.depth)}
-            </text>
-            <image
-              href={getPieceImage(node.move, node.depth)}
-              x={x - nodeWidth/2 + 35}
-              y={y + (nodeHeight - 20)/2}
-              width="20"
-              height="20"
-              className="pointer-events-none"
-            />
-            <text
-              x={x - nodeWidth/2 + 60}
-              y={y + nodeHeight/2}
-              className="text-sm font-medium pointer-events-none"
-              textAnchor="start"
-              dominantBaseline="middle"
-            >
-              {node.move.replace(/^[KQRBN]/, '')}
-            </text>
+              <text
+                x={x + 10}
+                y={y}
+                className="text-sm font-medium pointer-events-none"
+                textAnchor="start"
+                dominantBaseline="middle"
+              >
+                {node.depth % 2 === 1 ? `${Math.ceil(node.depth/2)}.` : ''}
+              </text>
+              <image
+                href={`pieces/${(node.depth % 2 === 1 ? 'w' : 'b')}${node.move.match(/^[KQRBN]/) ? node.move[0].toLowerCase() : 'p'}.svg`}
+                x={x + 35}
+                y={y - 10}
+                width="20"
+                height="20"
+                className="pointer-events-none"
+              />
+              <text
+                x={x + 60}
+                y={y}
+                className="text-sm font-medium pointer-events-none"
+                textAnchor="start"
+                dominantBaseline="middle"
+              >
+                {node.move.replace(/^[KQRBN]/, '')}
+              </text>
           </>
         )}
+
+        {/* Move the line name above the node */}
 
         {node.isFirstUniqueMove && node.lines.length === 1 && (
           <g>
             <rect
-              x={x - 50}
-              y={y - 20}
-              width={100}
+              x={x + (nodeWidth - 50)/2}
+              y={y - nodeHeight}
+              width={50}
               height={16}
               rx="8"
               className="fill-gray-100 stroke-gray-300 cursor-pointer hover:fill-gray-200"
@@ -260,8 +312,8 @@ const TreeNode = ({ node, x, y, availableWidth }) => {
               }}
             />
             <text
-              x={x}
-              y={y - 12}
+              x={x + nodeWidth/2}
+              y={y - nodeHeight + 9}
               className="text-xs font-medium text-blue-600 cursor-pointer"
               textAnchor="middle"
               dominantBaseline="middle"
@@ -276,23 +328,29 @@ const TreeNode = ({ node, x, y, availableWidth }) => {
           </g>
         )}
       </g>
+      {/* Draw connections and child nodes */}
+
       {children.map((child, index) => {
-        const childWidth = childDimensions[index].width;
-        const childX = currentX + childWidth / 2;
-        currentX += childWidth;
+        const totalEndNodes = calculateTotalEndNodes(child);
+        const totalSpacing = children.reduce((sum, n) => sum + calculateTotalEndNodes(n), 0) * minVerticalSpacing;
+        let accumulatedY = 0;
+        for (let i = 0; i < index; i++) {
+          accumulatedY += calculateTotalEndNodes(children[i]) * minVerticalSpacing;
+        }
+        const childY = y - (totalSpacing / 2) + accumulatedY + (totalEndNodes * minVerticalSpacing / 2);
 
         return (
           <g key={`${child.move}-${index}`}>
             <path
-              d={`M ${x} ${y + nodeHeight} L ${childX} ${y + levelHeight}`}
+              d={`M ${x + nodeWidth} ${y} L ${x + levelWidth} ${childY}`}
               className="stroke-gray-300"
               fill="none"
             />
             <TreeNode
               node={child}
-              x={childX}
-              y={y + levelHeight}
-              availableWidth={childWidth}
+              x={x + levelWidth}
+              y={childY}
+              availableHeight={totalEndNodes * minVerticalSpacing}
             />
           </g>
         );
@@ -300,6 +358,9 @@ const TreeNode = ({ node, x, y, availableWidth }) => {
     </g>
   );
 };
+
+  const handleZoomIn = () => setScale(scale => Math.min(scale * 1.2, 2));
+  const handleZoomOut = () => setScale(scale => Math.max(scale / 1.2, 0.5));
 
   if (!selectedOpening) {
     return (
@@ -329,13 +390,14 @@ const TreeNode = ({ node, x, y, availableWidth }) => {
   }
 
   const moveTree = buildMoveTree(selectedOpening.lines);
-  const dimensions = calculateDimensions(moveTree);
 
   return (
     <div className="p-4">
 
+    {/* Controls */}
+    <div className="mb-4 flex items-center justify-between">
       <select
-        className="mb-4 w-full max-w-xs p-2 border rounded-md shadow-sm"
+        className="w-full max-w-xs p-2 border rounded-md shadow-sm"
         value={selectedOpening?.id || ''}
         onChange={(e) => {
           const opening = openings.find(o => o.id === e.target.value);
@@ -350,21 +412,68 @@ const TreeNode = ({ node, x, y, availableWidth }) => {
         ))}
       </select>
 
-      <div className="bg-white rounded-lg shadow p-4 overflow-auto">
-        <svg
-          width={dimensions.width}
-          height={dimensions.height}
-          className="mx-auto"
-          viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
+      <div className="flex gap-2">
+        <button
+          onClick={handleZoomOut}
+          className="p-2 rounded-full hover:bg-gray-100"
         >
-          <TreeNode
-            node={moveTree}
-            x={dimensions.width / 2}
-            y={20}
-            availableWidth={dimensions.width}
-          />
-        </svg>
+          <ZoomOut className="h-5 w-5" />
+        </button>
+        <button
+          onClick={handleZoomIn}
+          className="p-2 rounded-full hover:bg-gray-100"
+        >
+          <ZoomIn className="h-5 w-5" />
+        </button>
       </div>
+    </div>
+
+      {/* Tree Container */}
+    <div className="bg-white rounded-lg shadow">
+      <div
+        ref={containerRef}
+        className="overflow-auto"
+        style={{ height: 'calc(100vh - 200px)' }}
+      >
+        <div
+          style={{
+            padding: '40px',
+            minWidth: dimensions.width + 200, // Extra space for padding
+            minHeight: dimensions.height + 80  // Extra space for padding
+          }}
+        >
+          <motion.div
+            drag
+            dragMomentum={false}
+            style={{
+              scale,
+              x: position.x,
+              y: position.y,
+            }}
+            onDragEnd={(e, info) => {
+              setPosition({
+                x: position.x + info.offset.x,
+                y: position.y + info.offset.y
+              });
+            }}
+          >
+            <svg
+              width={dimensions.width}
+              height={dimensions.height}
+            >
+              <TreeNode
+                node={moveTree}
+                x={200} // Increased starting position
+                y={dimensions.height / 2}
+                availableHeight={dimensions.height}
+              />
+            </svg>
+          </motion.div>
+        </div>
+      </div>
+    </div>
+
+
 
       <Dialog
         open={isDialogOpen}

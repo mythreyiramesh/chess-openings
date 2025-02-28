@@ -146,30 +146,8 @@ const TreeNode = ({ node, x, y, availableHeight }) => {
   const levelWidth = 180; // Increased for better horizontal spacing
   const minVerticalSpacing = 80; // Minimum space between nodes
 
-  const getPieceImage = (move, depth) => {
-    const pieceMap = {
-      'K': 'k', 'Q': 'q', 'R': 'r', 'B': 'b', 'N': 'n', 'P': 'p'
-    };
-
-    const piece = move.match(/^[KQRBN]/)?.[0] || 'P';
-    const color = (depth - 1) % 2 === 1 ? 'w' : 'b';
-    const pieceLetter = pieceMap[piece].toLowerCase();
-
-    return `${import.meta.env.BASE_URL}/pieces/${color}${pieceLetter}.svg`;
-  };
-
   const getMoveNumber = (depth) => {
     return Math.ceil((depth - 1) / 2);
-  };
-
-  const getMoveNotation = (move, depth) => {
-    const moveNumber = getMoveNumber(depth);
-    const isWhiteMove = (depth - 1) % 2 === 1;
-
-    if (isWhiteMove) {
-      return `${moveNumber}.`;
-    }
-    return '';
   };
 
   const handleNodeClick = (node) => {
@@ -275,7 +253,7 @@ const TreeNode = ({ node, x, y, availableHeight }) => {
                 {node.depth % 2 === 1 ? `${Math.ceil(node.depth/2)}.` : ''}
               </text>
               <image
-                href={`pieces/${(node.depth % 2 === 1 ? 'w' : 'b')}${node.move.match(/^[KQRBN]/) ? node.move[0].toLowerCase() : 'p'}.svg`}
+                href={`pieces/${(node.depth % 2 === 0 ? 'w' : 'b')}${node.move.match(/^[KQRBN]/) ? node.move[0].toLowerCase() : 'p'}.svg`}
                 x={x + 35}
                 y={y - 10}
                 width="20"
